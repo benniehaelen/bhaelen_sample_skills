@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>BigQuery Table Evaluation: my-project.analytics.events</title>
+<style>:root {
+  --bg: #0f172a; --fg: #e2e8f0; --muted: #94a3b8; --border: #334155; --card: #1e293b;
+  --accent: #60a5fa; --success: #34d399; --warn: #fbbf24; --danger: #f87171;
+  --pill-pass-bg: #064e3b; --pill-pass-fg: #a7f3d0;
+  --pill-fail-bg: #7f1d1d; --pill-fail-fg: #fecaca;
+  --pill-skip-bg: #1e293b; --pill-skip-fg: #94a3b8;
+  --pill-error-bg: #78350f; --pill-error-fg: #fde68a;
+  --warn-bg: #422006; --warn-border: #92400e;
+  --code-bg: #020617; --code-fg: #e2e8f0;
+  --bar-zero: #475569; --grid: #334155;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 32px 16px; background: var(--bg); color: var(--fg);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.wrap { max-width: 960px; margin: 0 auto; }
+h1 { font-size: 22px; margin: 0 0 4px; word-break: break-all; }
+h1 code { background: var(--card); padding: 2px 8px; border-radius: 6px; font-size: 18px; }
+h2 { font-size: 16px; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.subtitle { color: var(--muted); margin: 0 0 24px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.metric { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.metric .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.metric .value { font-size: 18px; font-weight: 600; margin-top: 4px; word-break: break-all; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 500;
+  border: 1px solid transparent;
+}
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; }
+.pill.passed { background: var(--pill-pass-bg); color: var(--pill-pass-fg); } .pill.passed .dot { background: var(--success); }
+.pill.failed { background: var(--pill-fail-bg); color: var(--pill-fail-fg); } .pill.failed .dot { background: var(--danger); }
+.pill.skipped_no_data { background: var(--pill-skip-bg); color: var(--pill-skip-fg); } .pill.skipped_no_data .dot { background: var(--muted); }
+.pill.error { background: var(--pill-error-bg); color: var(--pill-error-fg); } .pill.error .dot { background: var(--warn); }
+.warn-list { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 8px; padding: 12px 16px; }
+.warn-list ul { margin: 0; padding-left: 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+code { background: var(--card); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+details { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; }
+details + details { margin-top: 8px; }
+summary { padding: 10px 0; cursor: pointer; font-weight: 500; }
+details[open] summary { border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+pre { background: var(--code-bg); color: var(--code-fg); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+.chart { width: 100%; height: auto; display: block; }
+.chart .bar-row:hover .bar { filter: brightness(1.05); }
+.chart .label, .chart .value { font: 12px -apple-system, sans-serif; fill: var(--fg); }
+.chart .label { fill: var(--muted); }
+.chart .grid-label, .chart .chart-title { font: 10px -apple-system, sans-serif; fill: var(--muted); }
+.chart .gridline { stroke: var(--grid); stroke-dasharray: 2 3; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; color: var(--muted); margin: 4px 0 8px; }
+.chart-legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+.check-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
+.check-card h3 { font-size: 14px; margin: 0 0 6px; }
+.check-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; font-size: 12px; }
+.check-card dt { color: var(--muted); }
+.check-card dd { margin: 0; }</style>
+</head><body><div class="wrap">
+<h1>BigQuery Table Evaluation</h1>
+<p class="subtitle"><code>my-project.analytics.events</code></p>
+<div class="grid">
+<div class="metric"><div class="label">Rows</div><div class="value">1,234,567</div></div>
+<div class="metric"><div class="label">Size</div><div class="value">852.13 MiB</div></div>
+<div class="metric"><div class="label">Fields</div><div class="value">6</div></div>
+<div class="metric"><div class="label">Type</div><div class="value">TABLE</div></div>
+<div class="metric"><div class="label">Modified</div><div class="value">May 3, 2026 20:30 UTC (3h ago)</div></div>
+<div class="metric"><div class="label">Created</div><div class="value">Nov 4, 2025 23:50 UTC</div></div>
+<div class="metric"><div class="label">Freshness</div><div class="value">May 3, 2026 23:05 UTC (45m ago)</div></div>
+</div>
+<h2>Expectations</h2>
+<div class="pills">
+<span class="pill passed" title="{&quot;name&quot;: &quot;min_rows&quot;, &quot;status&quot;: &quot;passed&quot;, &quot;expected_min&quot;: 1000, &quot;actual&quot;: 1234567}"><span class="dot"></span>min_rows</span>
+<span class="pill failed" title="{&quot;name&quot;: &quot;zero_duplicates&quot;, &quot;status&quot;: &quot;failed&quot;, &quot;duplicate_excess_rows&quot;: 5}"><span class="dot"></span>zero_duplicates: 5 excess rows</span>
+<span class="pill failed" title="{&quot;name&quot;: &quot;freshness_within&quot;, &quot;status&quot;: &quot;failed&quot;, &quot;max_age&quot;: &quot;15m&quot;, &quot;age_seconds&quot;: 2700, &quot;max_value&quot;: &quot;2026-05-03T23:05:58+00:00&quot;}"><span class="dot"></span>freshness_within: 45m ago &gt; 15m</span>
+<span class="pill passed" title="{&quot;name&quot;: &quot;max_null_rate&quot;, &quot;column&quot;: &quot;user_id&quot;, &quot;status&quot;: &quot;passed&quot;, &quot;actual_null_rate&quot;: 0.01, &quot;max_null_rate&quot;: 0.05}"><span class="dot"></span>max_null_rate (user_id)</span>
+<span class="pill failed" title="{&quot;name&quot;: &quot;max_null_rate&quot;, &quot;column&quot;: &quot;referrer&quot;, &quot;status&quot;: &quot;failed&quot;, &quot;actual_null_rate&quot;: 0.2, &quot;max_null_rate&quot;: 0.05}"><span class="dot"></span>max_null_rate (referrer): 20.00% &gt; 5.00%</span>
+<span class="pill passed" title="{&quot;name&quot;: &quot;no_schema_drift&quot;, &quot;status&quot;: &quot;passed&quot;, &quot;added&quot;: 0, &quot;removed&quot;: 0, &quot;changed&quot;: 0}"><span class="dot"></span>no_schema_drift</span>
+</div>
+<h2>Warnings</h2>
+<div class="warn-list"><ul>
+<li>Data checks were not run for the partition_filter check; estimate exceeded scan cap.</li>
+</ul></div>
+<h2>Schema Drift</h2>
+<p>No drift detected vs <code>previous_report.json</code>.</p>
+<h2>Null rates by column</h2>
+<div class="chart-legend"><span><span class="swatch" style="background: var(--bar-zero)"></span>0%</span><span><span class="swatch" style="background: var(--accent)"></span>≤1%</span><span><span class="swatch" style="background: var(--warn)"></span>≤10%</span><span><span class="swatch" style="background: var(--danger)"></span>&gt;10%</span></div>
+<svg class="chart" viewBox="0 0 710 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Per-column null rate">
+<defs><linearGradient id="nrg-zero" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color: var(--bar-zero); stop-opacity: 1"/><stop offset="100%" style="stop-color: var(--bar-zero); stop-opacity: 0.7"/></linearGradient><linearGradient id="nrg-ok" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color: var(--accent); stop-opacity: 1"/><stop offset="100%" style="stop-color: var(--accent); stop-opacity: 0.7"/></linearGradient><linearGradient id="nrg-warn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color: var(--warn); stop-opacity: 1"/><stop offset="100%" style="stop-color: var(--warn); stop-opacity: 0.7"/></linearGradient><linearGradient id="nrg-bad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color: var(--danger); stop-opacity: 1"/><stop offset="100%" style="stop-color: var(--danger); stop-opacity: 0.7"/></linearGradient></defs>
+<text class="chart-title" x="200" y="24">Scanned 1,234,567 rows · null counts shown right of each bar</text>
+<line class="gridline" x1="295.0" y1="40" x2="295.0" y2="224"/>
+<text class="grid-label" x="295.0" y="36" text-anchor="middle">25%</text>
+<line class="gridline" x1="390.0" y1="40" x2="390.0" y2="224"/>
+<text class="grid-label" x="390.0" y="36" text-anchor="middle">50%</text>
+<line class="gridline" x1="485.0" y1="40" x2="485.0" y2="224"/>
+<text class="grid-label" x="485.0" y="36" text-anchor="middle">75%</text>
+<line class="gridline" x1="580.0" y1="40" x2="580.0" y2="224"/>
+<text class="grid-label" x="580.0" y="36" text-anchor="middle">100%</text>
+<g class="bar-row"><title>referrer: 246,913 of 1,234,567 rows null (20.00%)</title>
+<text class="label" x="188" y="63" text-anchor="end">referrer</text>
+<rect class="bar" fill="url(#nrg-bad)" x="200" y="48" width="76.0" height="22" rx="3"/>
+<text class="value" x="284.0" y="63">246,913 (20.00%)</text>
+</g>
+<g class="bar-row"><title>user_id: 12,340 of 1,234,567 rows null (1.00%)</title>
+<text class="label" x="188" y="93" text-anchor="end">user_id</text>
+<rect class="bar" fill="url(#nrg-ok)" x="200" y="78" width="3.8" height="22" rx="3"/>
+<text class="value" x="214.0" y="93">12,340 (1.00%)</text>
+</g>
+<g class="bar-row"><title>amount: 3,700 of 1,234,567 rows null (0.30%)</title>
+<text class="label" x="188" y="123" text-anchor="end">amount</text>
+<rect class="bar" fill="url(#nrg-ok)" x="200" y="108" width="1.1" height="22" rx="3"/>
+<text class="value" x="214.0" y="123">3,700 (0.30%)</text>
+</g>
+<g class="bar-row"><title>event_id: 0 of 1,234,567 rows null (0.00%)</title>
+<text class="label" x="188" y="153" text-anchor="end">event_id</text>
+<rect class="bar" fill="url(#nrg-zero)" x="200" y="138" width="3" height="22" rx="2"/>
+<text class="value" x="214.0" y="153">0</text>
+</g>
+<g class="bar-row"><title>event_date: 0 of 1,234,567 rows null (0.00%)</title>
+<text class="label" x="188" y="183" text-anchor="end">event_date</text>
+<rect class="bar" fill="url(#nrg-zero)" x="200" y="168" width="3" height="22" rx="2"/>
+<text class="value" x="214.0" y="183">0</text>
+</g>
+<g class="bar-row"><title>event_timestamp: 0 of 1,234,567 rows null (0.00%)</title>
+<text class="label" x="188" y="213" text-anchor="end">event_timestamp</text>
+<rect class="bar" fill="url(#nrg-zero)" x="200" y="198" width="3" height="22" rx="2"/>
+<text class="value" x="214.0" y="213">0</text>
+</g>
+</svg>
+<h2>Distinct values by column</h2>
+<svg class="chart" viewBox="0 0 710 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Per-column approximate distinct count">
+<defs><linearGradient id="dcg-ok" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color: var(--accent); stop-opacity: 1"/><stop offset="100%" style="stop-color: var(--accent); stop-opacity: 0.7"/></linearGradient></defs>
+<text class="chart-title" x="200" y="24">Approximate distinct values per column (log scale)</text>
+<line class="gridline" x1="218.8" y1="40" x2="218.8" y2="224"/>
+<text class="grid-label" x="218.8" y="36" text-anchor="middle">1</text>
+<line class="gridline" x1="265.0" y1="40" x2="265.0" y2="224"/>
+<text class="grid-label" x="265.0" y="36" text-anchor="middle">10</text>
+<line class="gridline" x1="325.0" y1="40" x2="325.0" y2="224"/>
+<text class="grid-label" x="325.0" y="36" text-anchor="middle">100</text>
+<line class="gridline" x1="387.2" y1="40" x2="387.2" y2="224"/>
+<text class="grid-label" x="387.2" y="36" text-anchor="middle">1K</text>
+<line class="gridline" x1="449.5" y1="40" x2="449.5" y2="224"/>
+<text class="grid-label" x="449.5" y="36" text-anchor="middle">10K</text>
+<line class="gridline" x1="511.9" y1="40" x2="511.9" y2="224"/>
+<text class="grid-label" x="511.9" y="36" text-anchor="middle">100K</text>
+<line class="gridline" x1="574.3" y1="40" x2="574.3" y2="224"/>
+<text class="grid-label" x="574.3" y="36" text-anchor="middle">1M</text>
+<g class="bar-row"><title>event_id: ~1,234,500 distinct values</title>
+<text class="label" x="188" y="63" text-anchor="end">event_id</text>
+<rect class="bar" fill="url(#dcg-ok)" x="200" y="48" width="380.0" height="22" rx="3"/>
+<text class="value" x="588.0" y="63">1.2M</text>
+</g>
+<g class="bar-row"><title>user_id: ~847,000 distinct values</title>
+<text class="label" x="188" y="93" text-anchor="end">user_id</text>
+<rect class="bar" fill="url(#dcg-ok)" x="200" y="78" width="369.8" height="22" rx="3"/>
+<text class="value" x="577.8" y="93">847K</text>
+</g>
+<g class="bar-row"><title>event_timestamp: ~500,000 distinct values</title>
+<text class="label" x="188" y="123" text-anchor="end">event_timestamp</text>
+<rect class="bar" fill="url(#dcg-ok)" x="200" y="108" width="355.5" height="22" rx="3"/>
+<text class="value" x="563.5" y="123">500K</text>
+</g>
+<g class="bar-row"><title>referrer: ~10,500 distinct values</title>
+<text class="label" x="188" y="153" text-anchor="end">referrer</text>
+<rect class="bar" fill="url(#dcg-ok)" x="200" y="138" width="250.9" height="22" rx="3"/>
+<text class="value" x="458.9" y="153">10.5K</text>
+</g>
+<g class="bar-row"><title>amount: ~5,000 distinct values</title>
+<text class="label" x="188" y="183" text-anchor="end">amount</text>
+<rect class="bar" fill="url(#dcg-ok)" x="200" y="168" width="230.8" height="22" rx="3"/>
+<text class="value" x="438.8" y="183">5K</text>
+</g>
+<g class="bar-row"><title>event_date: ~30 distinct values</title>
+<text class="label" x="188" y="213" text-anchor="end">event_date</text>
+<rect class="bar" fill="url(#dcg-ok)" x="200" y="198" width="93.0" height="22" rx="3"/>
+<text class="value" x="301.0" y="213">30</text>
+</g>
+</svg>
+<h2>Checks</h2>
+<div class="check-card">
+<h3>Partitions</h3>
+<dl>
+<dt>Status</dt><dd><code>complete</code></dd>
+<dt>partition_count</dt><dd><code>30</code></dd>
+<dt>empty_partition_count</dt><dd><code>2</code></dd>
+<dt>total_logical_bytes</dt><dd><code>893,524,000</code> (852.13 MiB)</dd>
+<dt>max_partition_bytes</dt><dd><code>45,000,000</code> (42.92 MiB)</dd>
+</dl></div>
+<div class="check-card">
+<h3>Freshness</h3>
+<dl>
+<dt>Status</dt><dd><code>complete</code></dd>
+<dt>max_value</dt><dd><code>2026-05-03T23:05:58+00:00</code></dd>
+</dl></div>
+<div class="check-card">
+<h3>Duplicate Keys</h3>
+<dl>
+<dt>Status</dt><dd><code>complete</code></dd>
+<dt>duplicate_key_groups</dt><dd><code>3</code></dd>
+<dt>duplicate_excess_rows</dt><dd><code>5</code></dd>
+</dl></div>
+<div class="check-card">
+<h3>Column Profile</h3>
+<dl>
+<dt>Status</dt><dd><code>complete</code></dd>
+<dt>scanned_rows</dt><dd><code>1234567</code></dd>
+<dt>event_id__null_count</dt><dd><code>0</code></dd>
+<dt>event_id__approx_distinct</dt><dd><code>1234500</code></dd>
+<dt>user_id__null_count</dt><dd><code>12340</code></dd>
+<dt>user_id__approx_distinct</dt><dd><code>847000</code></dd>
+<dt>event_date__null_count</dt><dd><code>0</code></dd>
+<dt>event_date__approx_distinct</dt><dd><code>30</code></dd>
+<dt>event_timestamp__null_count</dt><dd><code>0</code></dd>
+<dt>event_timestamp__approx_distinct</dt><dd><code>500000</code></dd>
+<dt>referrer__null_count</dt><dd><code>246913</code></dd>
+<dt>referrer__approx_distinct</dt><dd><code>10500</code></dd>
+<dt>amount__null_count</dt><dd><code>3700</code></dd>
+<dt>amount__approx_distinct</dt><dd><code>5000</code></dd>
+<dt>Profiled</dt><dd>event_id, user_id, event_date, event_timestamp, referrer, amount</dd>
+</dl></div>
+<h2>Schema (6 fields)</h2>
+<details><summary>Show fields</summary>
+<table><thead><tr><th>Column</th><th>Type</th><th>Mode</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>event_id</code></td><td><code>STRING</code></td><td><code>REQUIRED</code></td><td>unique event id</td></tr>
+<tr><td><code>user_id</code></td><td><code>STRING</code></td><td><code>NULLABLE</code></td><td></td></tr>
+<tr><td><code>event_date</code></td><td><code>DATE</code></td><td><code>REQUIRED</code></td><td>partition column</td></tr>
+<tr><td><code>event_timestamp</code></td><td><code>TIMESTAMP</code></td><td><code>REQUIRED</code></td><td>event ingest time</td></tr>
+<tr><td><code>referrer</code></td><td><code>STRING</code></td><td><code>NULLABLE</code></td><td></td></tr>
+<tr><td><code>amount</code></td><td><code>NUMERIC</code></td><td><code>NULLABLE</code></td><td></td></tr>
+</tbody></table></details>
+<h2>Sample rows</h2>
+<details><summary>Show 1 row(s)</summary>
+<pre>[
+  {
+    &quot;event_id&quot;: &quot;e_1&quot;,
+    &quot;user_id&quot;: &quot;u_42&quot;,
+    &quot;event_date&quot;: &quot;2026-05-03&quot;,
+    &quot;referrer&quot;: &quot;https://example.com&quot;,
+    &quot;amount&quot;: 19.99
+  }
+]</pre>
+</details>
+</div></body></html>

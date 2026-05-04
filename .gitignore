@@ -1,0 +1,56 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Coverage / test artifacts
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Claude Code local state (per-user; settings.json is the shared one)
+.claude/settings.local.json
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+service-account*.json
+gcp-credentials*.json
+application_default_credentials.json
+
+# Generated reports from running the evaluator
+# (kept narrow on purpose so committed sample dashboards in examples/ stay tracked)
+/report.json
+/report.md
+/report.html
+**/bigquery_table_report.json
+**/bigquery_table_report.md
+**/bigquery_table_report.html
