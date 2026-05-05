@@ -155,6 +155,35 @@ class TestMarkdown:
         assert "| Column | Type | Score | Description | Failing criteria |" in md
         assert "Stable encounter identifier." in md
 
+    def test_markdown_summary_section_present(self, render_module, sample_report):
+        md = render_module.make_markdown(sample_report)
+        # Summary appears before per-table sections
+        summary_idx = md.index("## Summary")
+        first_table_idx = md.index("`my-project.analytics.users`")
+        # The first occurrence of the table id is in the summary table, which precedes the H2 for that table
+        # We can assert that the summary header precedes both per-table H2s
+        users_h2 = md.index("## `my-project.analytics.users`")
+        events_h2 = md.index("## `my-project.analytics.events`")
+        assert summary_idx < users_h2 < events_h2
+
+    def test_markdown_summary_includes_table_score_grade_and_top_issue(self, render_module, sample_report):
+        md = render_module.make_markdown(sample_report)
+        # Summary row format: | `table_id` | score | grade | top issue |
+        assert "| `my-project.analytics.users` | 45 | F |" in md
+        assert "| `my-project.analytics.events` | 88 | B |" in md
+
+    def test_markdown_summary_dash_when_no_issues(self, render_module):
+        md = render_module.make_markdown({
+            "rubric_version": "1.0", "scope": {"tables": ["p.d.t"]},
+            "tables": [{
+                "table_id": "p.d.t", "score": 95, "grade": "A",
+                "table_metadata": {"description": "ok", "labels": {}, "points": 16, "max": 16, "criteria": []},
+                "column_metadata": {"mean_normalized": 1.0, "column_count": 0, "columns": []},
+                "issues": [],
+            }],
+        })
+        assert "| `p.d.t` | 95 | A | — |" in md
+
     def test_pipe_in_evidence_is_escaped(self, render_module):
         md = render_module.make_markdown({
             "rubric_version": "1.0",
@@ -237,6 +266,48 @@ class TestHtml:
         h = render_module.make_html(sample_report)
         assert 'class="col-desc"' in h
         assert "Stable encounter identifier." in h
+
+    def test_html_summary_present(self, render_module, sample_report):
+        h = render_module.make_html(sample_report)
+        assert 'class="summary"' in h
+        assert ">Summary &middot; 2 table" in h
+        assert "<th>Table</th><th>Score</th><th>Grade</th><th>Top issue</th>" in h
+
+    def test_html_summary_links_to_anchor(self, render_module, sample_report):
+        h = render_module.make_html(sample_report)
+        # Anchor IDs derive from the table_id; check both directions
+        assert 'id="t-my-project-analytics-users"' in h
+        assert 'href="#t-my-project-analytics-users"' in h
+
+    def test_html_summary_precedes_scorecards(self, render_module, sample_report):
+        h = render_module.make_html(sample_report)
+        summary_idx = h.index('class="summary"')
+        first_card_idx = h.index('class="scorecard"')
+        assert summary_idx < first_card_idx
+
+    def test_html_summary_dash_for_no_issues(self, render_module):
+        h = render_module.make_html({
+            "rubric_version": "1.0", "scope": {"tables": ["p.d.t"]},
+            "tables": [{
+                "table_id": "p.d.t", "score": 95, "grade": "A",
+                "table_metadata": {"description": "ok", "labels": {}, "points": 16, "max": 16, "criteria": []},
+                "column_metadata": {"mean_normalized": 1.0, "column_count": 0, "columns": []},
+                "issues": [],
+            }],
+        })
+        assert "&mdash;" in h
+
+    def test_slug_handles_special_chars(self, render_module):
+        h = render_module.make_html({
+            "rubric_version": "1.0", "scope": {"tables": ["a-b.c.d_e"]},
+            "tables": [{
+                "table_id": "a-b.c.d_e", "score": 50, "grade": "F",
+                "table_metadata": {"description": None, "labels": {}, "points": 0, "max": 16, "criteria": []},
+                "column_metadata": {"mean_normalized": 0.0, "column_count": 0, "columns": []},
+                "issues": [],
+            }],
+        })
+        assert 'id="t-a-b-c-d-e"' in h
 
     def test_missing_description_marked_empty(self, render_module):
         h = render_module.make_html({

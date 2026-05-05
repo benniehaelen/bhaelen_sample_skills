@@ -141,6 +141,22 @@ details.desc-panel[open] > summary { border-bottom: 1px solid var(--border); mar
 .label-chip strong { color: var(--fg); font-weight: 600; }
 .col-desc { padding: 6px 0 4px; font-size: 12px; color: var(--fg); line-height: 1.5; white-space: pre-wrap; word-break: break-word; border-left: 3px solid var(--border); padding-left: 10px; margin: 4px 0 8px; background: var(--bg); }
 .col-desc.empty { color: var(--muted); font-style: italic; }
+.summary {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 18px; margin-bottom: 20px;
+}
+.summary h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.summary table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.summary th, .summary td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.summary tr:last-child td { border-bottom: none; }
+.summary th { font-weight: 600; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.summary td.score { font-variant-numeric: tabular-nums; font-weight: 600; }
+.summary td.grade-cell { width: 1%; }
+.summary td.grade-cell .grade-pill { min-width: 28px; height: 24px; font-size: 12px; padding: 0 8px; }
+.summary td.id-cell a { color: inherit; text-decoration: none; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; word-break: break-all; }
+.summary td.id-cell a:hover { text-decoration: underline; color: var(--accent); }
+.summary td.issue-cell { color: var(--muted); font-size: 12px; }
+.scorecard { scroll-margin-top: 16px; }
 """.strip()
 
 
@@ -197,6 +213,24 @@ def _sorted_tables(report: dict[str, Any]) -> list[dict[str, Any]]:
     return tables
 
 
+def _slug(table_id: str | None) -> str:
+    """HTML anchor id derived from a fully qualified table id."""
+    text = (table_id or "table").lower()
+    out = []
+    for ch in text:
+        if ch.isalnum():
+            out.append(ch)
+        elif ch in (".", "-", "_"):
+            out.append("-")
+    slug = "".join(out).strip("-")
+    return f"t-{slug}" if slug else "t-unknown"
+
+
+def _top_issue(table: dict[str, Any]) -> str:
+    issues = table.get("issues") or []
+    return issues[0] if issues else ""
+
+
 # ---------------------------------------------------------------------------
 # Markdown
 # ---------------------------------------------------------------------------
@@ -239,7 +273,21 @@ def make_markdown(report: dict[str, Any]) -> str:
             lines.append(f"- {w}")
         lines.append("")
 
-    for table in _sorted_tables(report):
+    sorted_tables = _sorted_tables(report)
+    if sorted_tables:
+        lines.append(f"## Summary — {len(sorted_tables)} table{'s' if len(sorted_tables) != 1 else ''}")
+        lines.append("")
+        lines.append("| Table | Score | Grade | Top issue |")
+        lines.append("| --- | --- | --- | --- |")
+        for t in sorted_tables:
+            tid = t.get("table_id") or "(unknown)"
+            score = t.get("score", 0)
+            grade = t.get("grade", "?")
+            top = _top_issue(t).replace("|", "\\|").replace("\n", " ") or "—"
+            lines.append(f"| `{tid}` | {score} | {grade} | {top} |")
+        lines.append("")
+
+    for table in sorted_tables:
         tid = table.get("table_id", "(unknown)")
         score = table.get("score", 0)
         grade = table.get("grade", "?")
@@ -410,9 +458,10 @@ def _table_scorecard(table: dict[str, Any]) -> str:
         columns_html = "".join(_column_card(c) for c in cols_sorted)
 
     desc_panel = _description_panel(tm.get("description"), tm.get("labels"), default_open=True)
+    anchor_id = _slug(table.get("table_id"))
 
     return (
-        f'<div class="scorecard">'
+        f'<div class="scorecard" id="{anchor_id}">'
         f'<div class="sc-head">'
         f'<div><h2 class="sc-id"><code>{tid}</code></h2></div>'
         f'<div class="sc-score">'
@@ -432,6 +481,37 @@ def _table_scorecard(table: dict[str, Any]) -> str:
         f'{columns_html}'
         f'{issues_html}'
         f'</div>'
+    )
+
+
+def _summary_html(tables: list[dict[str, Any]]) -> str:
+    if not tables:
+        return ""
+    rows: list[str] = []
+    for t in tables:
+        tid = t.get("table_id") or "(unknown)"
+        score = t.get("score", 0)
+        grade = t.get("grade", "?")
+        grade_cls = f"grade-{grade}" if grade in ("A", "B", "C", "D", "F") else "grade-F"
+        anchor = _slug(tid)
+        top = _top_issue(t)
+        top_cell = _e(top) if top else "&mdash;"
+        rows.append(
+            f'<tr>'
+            f'<td class="id-cell"><a href="#{anchor}">{_e(tid)}</a></td>'
+            f'<td class="score">{score}</td>'
+            f'<td class="grade-cell"><span class="grade-pill {grade_cls}">{_e(grade)}</span></td>'
+            f'<td class="issue-cell">{top_cell}</td>'
+            f'</tr>'
+        )
+    return (
+        '<div class="summary">'
+        f'<h2>Summary &middot; {len(tables)} table{"s" if len(tables) != 1 else ""}</h2>'
+        '<table>'
+        '<thead><tr><th>Table</th><th>Score</th><th>Grade</th><th>Top issue</th></tr></thead>'
+        f'<tbody>{"".join(rows)}</tbody>'
+        '</table>'
+        '</div>'
     )
 
 
@@ -463,7 +543,9 @@ def make_html(report: dict[str, Any], *, theme: str = "auto") -> str:
     scored_at = report.get("scored_at")
     scored_str = f" · {format_datetime(scored_at)}" if scored_at else ""
 
-    cards = "".join(_table_scorecard(t) for t in _sorted_tables(report))
+    sorted_tables = _sorted_tables(report)
+    summary_html = _summary_html(sorted_tables)
+    cards = "".join(_table_scorecard(t) for t in sorted_tables)
     expectations_html = _expectations_html(report.get("expectations") or [])
     warnings_html = _warnings_html(report.get("warnings") or [])
 
@@ -481,6 +563,7 @@ def make_html(report: dict[str, Any], *, theme: str = "auto") -> str:
         f'<p class="subtitle">{_e(scope)} · rubric v{_e(rubric)}{_e(scored_str)}</p>'
         f'{expectations_html}'
         f'{warnings_html}'
+        f'{summary_html}'
         f'{cards}'
         '</div></body></html>\n'
     )
