@@ -9,6 +9,7 @@ Each top-level directory is one self-contained skill with its own `SKILL.md`, sc
 | Skill | What it does |
 | --- | --- |
 | [`bigquery-table-evaluator-skill/`](bigquery-table-evaluator-skill/) | Evaluate, audit, profile, or health-check a Google BigQuery table. Reports metadata, schema, partitioning, freshness, duplicate keys, and per-column null rates. Supports CI-style expectation flags and emits JSON / Markdown / a self-contained HTML dashboard. |
+| [`score-table-metadata-skill/`](score-table-metadata-skill/) | Score authored metadata quality on BigQuery tables against the data-steward rubric (8 table-level criteria, 6 column-level criteria). Accepts a dataset or list of tables; produces a 0-100 score and A-F grade per table with per-criterion evidence and an actionable issues list. Supports CI-style `--expect-min-score` gate. |
 
 See each skill's `README.md` for installation and usage.
 
