@@ -65,10 +65,11 @@ Each criterion scores 0/1/2 (fail / partial / pass).
 | --- | --- | --- |
 | `has_description` | Always | Non-empty, ≥10 chars. |
 | `not_type_echo` | Always | Description doesn't just repeat the type or column name. |
+| `derived_or_source_status` | Always | Description states whether the value is raw from a source system or derived/calculated downstream (FK / "from upstream" / "auto-generated" / "calculated from" all count). |
 | `coded_field_explained` | Names ending in `_code`, `_status`, `_flag`, `_type`, `_cd`, `_ind`, `_category` | Description mentions code system / values / enumerations. |
 | `units_or_format` | Names containing `amount`, `count`, `rate`, `pct`, `temp`, `dose`, `qty`, `weight`, `date`, `timestamp`, etc. | Description states units, timezone, or format. |
 | `sensitivity_flagged` | Names like `ssn`, `email`, `dob`, `phone`, `mrn`, `patient_id`, `address`, `first_name`, etc. | Description mentions sensitivity OR column has a policy tag. |
-| `caveats_present` | Bonus | +2 if description mentions `deprecated`, `legacy`, `do not use`, `null when`, `overloaded`. |
+| `caveats_present` | Bonus | +2 if description mentions a known caveat phrase (`deprecated`, `legacy`, `not enforced`, `by design`, `be aware`, `note:`, `caution:`, `may be null`, `duplicates exist`, `overloaded`, etc.). |
 
 **Combined score**: `0.4 * (table_pts / 16) + 0.6 * column_mean_normalized`, scaled to 0-100. Letter grade: 90+ A, 80-89 B, 70-79 C, 60-69 D, <60 F.
 

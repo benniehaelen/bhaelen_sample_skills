@@ -212,6 +212,75 @@ class TestColumnCriteria:
         caveat_crit = _criteria_by_name(result_yes)["caveats_present"]
         assert caveat_crit["points"] == 2 and caveat_crit["max"] == 2
 
+    @pytest.mark.parametrize("desc", [
+        "Order identifier. Primary key — declared but NOT enforced; ~50 duplicates exist by design.",
+        "Optional. Note: may be null when the encounter is in progress.",
+        "Encounter type. Be aware: legacy values may still appear.",
+        "Status code. Caution: overloaded with multiple meanings.",
+        "Active flag. Not unique across facilities.",
+    ])
+    def test_caveats_extended_keywords(self, rubric_module, desc):
+        result = rubric_module.score_column_metadata({
+            "name": "user_id", "type": "STRING", "description": desc,
+        })
+        caveat_crit = _criteria_by_name(result)["caveats_present"]
+        assert caveat_crit["points"] == 2, f"caveat not detected in: {desc!r}"
+
+    @pytest.mark.parametrize("desc", [
+        "Stable identifier. Foreign key to customers.customer_id.",
+        "Order total in USD; calculated from order_lines.",
+        "Encounter status, from the source ADT feed.",
+        "UUID; auto-generated at row creation.",
+        "Source-native from upstream ADT system.",
+        "Lineage: derived from raw_orders.amount.",
+        "Surrogate key.",
+    ])
+    def test_derived_or_source_status_pass(self, rubric_module, desc):
+        result = rubric_module.score_column_metadata({
+            "name": "user_id", "type": "STRING", "description": desc,
+        })
+        crit = _criteria_by_name(result)["derived_or_source_status"]
+        assert crit["points"] == 2, f"source/derived not detected in: {desc!r}"
+
+    @pytest.mark.parametrize("desc", [
+        "Customer identifier.",
+        "Email address provided at signup.",
+        "Created on the first interaction.",
+    ])
+    def test_derived_or_source_status_fail(self, rubric_module, desc):
+        result = rubric_module.score_column_metadata({
+            "name": "user_id", "type": "STRING", "description": desc,
+        })
+        crit = _criteria_by_name(result)["derived_or_source_status"]
+        assert crit["points"] == 0
+
+    def test_derived_or_source_is_always_applicable(self, rubric_module):
+        """Unlike coded/measure/sensitivity criteria, derived_or_source_status applies to every column."""
+        result = rubric_module.score_column_metadata({
+            "name": "anything", "type": "STRING",
+            "description": "A field with no provenance information.",
+        })
+        assert "derived_or_source_status" in _criteria_by_name(result)
+
+
+class TestDescriptionSurfacing:
+    def test_column_metadata_includes_description(self, rubric_module):
+        result = rubric_module.score_column_metadata({
+            "name": "x", "type": "STRING", "description": "the actual full text",
+        })
+        assert result["description"] == "the actual full text"
+
+    def test_table_block_includes_description_and_labels(self, rubric_module):
+        result = rubric_module.score_table({
+            "table_id": "p.d.t",
+            "description": "Full table description here.",
+            "labels": {"owner": "team-x", "phi": "true"},
+            "columns": [],
+        })
+        tm = result["table_metadata"]
+        assert tm["description"] == "Full table description here."
+        assert tm["labels"] == {"owner": "team-x", "phi": "true"}
+
 
 # ---------------------------------------------------------------------------
 # Aggregation: scoring + grade boundaries
@@ -242,11 +311,11 @@ class TestAggregation:
             "labels": {},
             "columns": [
                 {"name": "encounter_id", "type": "STRING",
-                 "description": "Stable encounter identifier for joining to clinical data."},
+                 "description": "Stable encounter identifier; foreign key to encounters.id."},
                 {"name": "discharge_disposition_code", "type": "STRING",
-                 "description": "Coded discharge status; values map to home, transfer, expired."},
+                 "description": "Coded discharge status from the source ADT feed; values map to home, transfer, expired."},
                 {"name": "event_timestamp", "type": "TIMESTAMP",
-                 "description": "Encounter close time in UTC, ISO 8601 format."},
+                 "description": "Encounter close time in UTC, ISO 8601 format. Source-native from ADT."},
             ],
         })
         assert result["score"] == 100

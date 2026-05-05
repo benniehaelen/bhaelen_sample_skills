@@ -131,6 +131,16 @@ details.col-detail .crit-list { margin: 4px 0 8px; }
 .issues li { margin: 3px 0; }
 .exp-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
 .no-issues { color: var(--muted); font-size: 12px; font-style: italic; padding: 4px 0; }
+details.desc-panel { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; margin: 12px 0; }
+details.desc-panel > summary { padding: 8px 0; cursor: pointer; font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+details.desc-panel[open] > summary { border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.desc-body { padding: 4px 0 10px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.desc-body.empty { color: var(--muted); font-style: italic; }
+.label-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.label-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; background: var(--card); border: 1px solid var(--border); font-size: 11px; font-family: ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); }
+.label-chip strong { color: var(--fg); font-weight: 600; }
+.col-desc { padding: 6px 0 4px; font-size: 12px; color: var(--fg); line-height: 1.5; white-space: pre-wrap; word-break: break-word; border-left: 3px solid var(--border); padding-left: 10px; margin: 4px 0 8px; background: var(--bg); }
+.col-desc.empty { color: var(--muted); font-style: italic; }
 """.strip()
 
 
@@ -237,6 +247,22 @@ def make_markdown(report: dict[str, Any]) -> str:
         lines.append("")
 
         tm = table.get("table_metadata") or {}
+        table_desc = (tm.get("description") or "").strip()
+        if table_desc:
+            lines.append("**Description:**")
+            lines.append("")
+            for desc_line in table_desc.split("\n"):
+                lines.append(f"> {desc_line}")
+            lines.append("")
+        else:
+            lines.append("**Description:** _(none)_")
+            lines.append("")
+        labels = tm.get("labels") or {}
+        if labels:
+            label_str = ", ".join(f"`{k}={v}`" for k, v in sorted(labels.items()))
+            lines.append(f"**Labels:** {label_str}")
+            lines.append("")
+
         lines.append(f"### Table metadata: {tm.get('points', 0)}/{tm.get('max', 16)}")
         lines.append("")
         lines.append("| Criterion | Status | Evidence |")
@@ -253,15 +279,23 @@ def make_markdown(report: dict[str, Any]) -> str:
         lines.append(f"### Column metadata: {ccount} columns, mean ratio {mean:.2f}")
         lines.append("")
         if cm.get("columns"):
-            lines.append("| Column | Score | Failing criteria |")
-            lines.append("| --- | --- | --- |")
-            for col in cm["columns"]:
+            lines.append("| Column | Type | Score | Description | Failing criteria |")
+            lines.append("| --- | --- | --- | --- | --- |")
+            cols_sorted = sorted(
+                cm["columns"],
+                key=lambda c: ((c.get("points") or 0) / (c.get("max") or 1)),
+            )
+            for col in cols_sorted:
                 fails = [c["name"] for c in (col.get("criteria") or [])
                          if _criterion_status(c) in ("fail", "partial")]
                 fails_str = ", ".join(f"`{n}`" for n in fails) if fails else "—"
                 pts = col.get("points", 0)
                 mx = col.get("max", 0)
-                lines.append(f"| `{col.get('name')}` | {pts}/{mx} | {fails_str} |")
+                col_desc = (col.get("description") or "").strip().replace("|", "\\|").replace("\n", " ")
+                if not col_desc:
+                    col_desc = "_(none)_"
+                ctype = col.get("type") or ""
+                lines.append(f"| `{col.get('name')}` | {ctype} | {pts}/{mx} | {col_desc} | {fails_str} |")
             lines.append("")
 
         issues = table.get("issues") or []
@@ -281,6 +315,37 @@ def _criterion_pill(c: dict[str, Any]) -> str:
     status = _criterion_status(c)
     label = {"pass": "pass", "partial": "partial", "fail": "fail", "na": "n/a"}[status]
     return f'<span class="pill {status}"><span class="dot"></span>{label} {c.get("points", 0)}/{c.get("max", 0)}</span>'
+
+
+def _description_panel(description: str | None, labels: dict[str, str] | None = None,
+                       *, default_open: bool = True) -> str:
+    """Collapsible 'Description' panel for a table card. Open by default."""
+    desc = (description or "").strip()
+    body_cls = "desc-body" if desc else "desc-body empty"
+    body_text = _e(desc) if desc else "(no description)"
+    chips_html = ""
+    if labels:
+        chips = "".join(
+            f'<span class="label-chip"><strong>{_e(k)}</strong>={_e(v)}</span>'
+            for k, v in sorted(labels.items())
+        )
+        chips_html = f'<div class="label-chips">{chips}</div>'
+    open_attr = " open" if default_open else ""
+    return (
+        f'<details class="desc-panel"{open_attr}>'
+        f'<summary>Description &amp; labels</summary>'
+        f'<div class="{body_cls}">{body_text}</div>'
+        f'{chips_html}'
+        f'</details>'
+    )
+
+
+def _column_description_block(description: str | None) -> str:
+    """Inline description shown at the top of an expanded column panel."""
+    desc = (description or "").strip()
+    if desc:
+        return f'<div class="col-desc">{_e(desc)}</div>'
+    return '<div class="col-desc empty">(no description)</div>'
 
 
 def _criteria_block(criteria: list[dict[str, Any]]) -> str:
@@ -313,7 +378,8 @@ def _column_card(col: dict[str, Any]) -> str:
         f'{f" · {len(fails)} issue(s)" if fails else ""}'
         f'</summary>'
     )
-    return f'<details class="col-detail">{summary}{inner}</details>'
+    desc_block = _column_description_block(col.get("description"))
+    return f'<details class="col-detail">{summary}{desc_block}{inner}</details>'
 
 
 def _table_scorecard(table: dict[str, Any]) -> str:
@@ -343,6 +409,8 @@ def _table_scorecard(table: dict[str, Any]) -> str:
         )
         columns_html = "".join(_column_card(c) for c in cols_sorted)
 
+    desc_panel = _description_panel(tm.get("description"), tm.get("labels"), default_open=True)
+
     return (
         f'<div class="scorecard">'
         f'<div class="sc-head">'
@@ -352,6 +420,7 @@ def _table_scorecard(table: dict[str, Any]) -> str:
         f'<span class="grade-pill {grade_cls}">{_e(grade)}</span>'
         f'</div>'
         f'</div>'
+        f'{desc_panel}'
         f'<h3>Table metadata · {tm.get("points", 0)}/{tm.get("max", 16)}</h3>'
         f'{_criteria_block(tm.get("criteria") or [])}'
         f'<h3>Column metadata · {ccount} columns</h3>'

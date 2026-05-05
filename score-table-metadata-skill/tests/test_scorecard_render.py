@@ -17,6 +17,8 @@ def sample_report():
                 "score": 88,
                 "grade": "B",
                 "table_metadata": {
+                    "description": "Application events emitted by the patient portal.\nUsed for engagement analysis.",
+                    "labels": {"owner": "engagement-team"},
                     "points": 14, "max": 16,
                     "criteria": [
                         {"name": "business_description", "points": 2, "max": 2, "passed": True, "evidence": "Encounter records..."},
@@ -34,6 +36,7 @@ def sample_report():
                     "columns": [
                         {
                             "name": "encounter_id", "type": "STRING", "mode": "NULLABLE",
+                            "description": "Stable encounter identifier.",
                             "points": 4, "max": 4,
                             "criteria": [
                                 {"name": "has_description", "points": 2, "max": 2, "passed": True, "evidence": "..."},
@@ -42,6 +45,7 @@ def sample_report():
                         },
                         {
                             "name": "event_timestamp", "type": "TIMESTAMP", "mode": "NULLABLE",
+                            "description": "When the event occurred.",
                             "points": 4, "max": 6,
                             "criteria": [
                                 {"name": "has_description", "points": 2, "max": 2, "passed": True, "evidence": "..."},
@@ -78,6 +82,7 @@ def sample_report():
                     "columns": [
                         {
                             "name": "user_id", "type": "STRING", "mode": "NULLABLE",
+                            "description": "id field",
                             "points": 2, "max": 4,
                             "criteria": [
                                 {"name": "has_description", "points": 2, "max": 2, "passed": True, "evidence": "id field"},
@@ -122,6 +127,33 @@ class TestMarkdown:
             "rubric_version": "1.0", "scope": {"tables": []}, "tables": [],
         })
         assert md.startswith("# Metadata Scorecard\n")
+
+    def test_table_description_rendered_as_blockquote(self, render_module, sample_report):
+        md = render_module.make_markdown(sample_report)
+        # The events table description has two lines
+        assert "> Application events emitted by the patient portal." in md
+        assert "> Used for engagement analysis." in md
+
+    def test_missing_table_description_marked_as_none(self, render_module):
+        md = render_module.make_markdown({
+            "rubric_version": "1.0", "scope": {"tables": ["p.d.t"]},
+            "tables": [{
+                "table_id": "p.d.t", "score": 50, "grade": "F",
+                "table_metadata": {"description": None, "labels": {}, "points": 0, "max": 16, "criteria": []},
+                "column_metadata": {"mean_normalized": 0.0, "column_count": 0, "columns": []},
+                "issues": [],
+            }],
+        })
+        assert "_(none)_" in md
+
+    def test_table_labels_rendered(self, render_module, sample_report):
+        md = render_module.make_markdown(sample_report)
+        assert "`owner=engagement-team`" in md
+
+    def test_column_table_includes_description_column(self, render_module, sample_report):
+        md = render_module.make_markdown(sample_report)
+        assert "| Column | Type | Score | Description | Failing criteria |" in md
+        assert "Stable encounter identifier." in md
 
     def test_pipe_in_evidence_is_escaped(self, render_module):
         md = render_module.make_markdown({
@@ -188,3 +220,37 @@ class TestHtml:
     def test_invalid_theme_raises(self, render_module, sample_report):
         with pytest.raises(ValueError):
             render_module.make_html(sample_report, theme="solarized")
+
+    def test_table_description_panel_present(self, render_module, sample_report):
+        h = render_module.make_html(sample_report)
+        assert 'class="desc-panel"' in h
+        assert "Application events emitted by the patient portal." in h
+        # Open by default
+        assert '<details class="desc-panel" open>' in h
+
+    def test_table_label_chips_rendered(self, render_module, sample_report):
+        h = render_module.make_html(sample_report)
+        assert 'class="label-chip"' in h
+        assert "engagement-team" in h
+
+    def test_column_description_in_collapsible(self, render_module, sample_report):
+        h = render_module.make_html(sample_report)
+        assert 'class="col-desc"' in h
+        assert "Stable encounter identifier." in h
+
+    def test_missing_description_marked_empty(self, render_module):
+        h = render_module.make_html({
+            "rubric_version": "1.0", "scope": {"tables": ["p.d.t"]},
+            "tables": [{
+                "table_id": "p.d.t", "score": 50, "grade": "F",
+                "table_metadata": {"description": None, "labels": {}, "points": 0, "max": 16, "criteria": []},
+                "column_metadata": {"mean_normalized": 0.0, "column_count": 1, "columns": [{
+                    "name": "x", "type": "STRING", "mode": "NULLABLE", "description": None,
+                    "points": 0, "max": 4, "criteria": [],
+                }]},
+                "issues": [],
+            }],
+        })
+        assert 'desc-body empty' in h
+        assert 'col-desc empty' in h
+        assert "(no description)" in h

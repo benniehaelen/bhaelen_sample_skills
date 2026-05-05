@@ -34,17 +34,18 @@ Per-criterion scoring is 0/1/2 (fail / partial / pass). Hard limit on BigQuery d
 
 ### Column-level criteria (max varies per column)
 
-These two **always** apply (max 4 pts):
+These three **always** apply (max 6 pts):
 1. `has_description` — present and non-empty (≥10 chars for full credit).
 2. `not_type_echo` — doesn't just repeat the type or name (e.g. "string field", "the user_id field" → fail). Full credit requires ≥15 chars of meaningful text.
+3. `derived_or_source_status` — description states whether the value is raw from a source system or derived/calculated downstream. FK / lookup / "from upstream" / "auto-generated" / "source-native" / "calculated from" all count.
 
 These are **conditional** — they only count toward the column's max when the column name suggests they apply (max 2 pts each when applicable):
-3. `coded_field_explained` — applies when the column name ends in `_code`, `_status`, `_flag`, `_type`, `_cd`, `_ind`, or `_category`. Description should mention the code system, allowed values, or enumerations.
-4. `units_or_format` — applies when the column name contains `amount`, `count`, `rate`, `pct`, `temp`, `dose`, `qty`, `quantity`, `weight`, `height`, `length`, `date`, `datetime`, `timestamp`, `duration`, `elapsed`, `seconds`, `minutes`, `hours`, `days`, `price`, `cost`. Description should state units, timezone, or format.
-5. `sensitivity_flagged` — applies when the column name matches `ssn`, `email`, `dob`, `date_of_birth`, `phone`, `mrn`, `patient_id`, `address`, `zip`, `postal`, `first_name`, `last_name`, `full_name`, `account`, `credit_card`, `card_number`, `tax_id`. Description should mention sensitivity, **or** the column should have BigQuery policy tags.
+4. `coded_field_explained` — applies when the column name ends in `_code`, `_status`, `_flag`, `_type`, `_cd`, `_ind`, or `_category`. Description should mention the code system, allowed values, or enumerations.
+5. `units_or_format` — applies when the column name contains `amount`, `count`, `rate`, `pct`, `temp`, `dose`, `qty`, `quantity`, `weight`, `height`, `length`, `date`, `datetime`, `timestamp`, `duration`, `elapsed`, `seconds`, `minutes`, `hours`, `days`, `price`, `cost`. Description should state units, timezone, or format.
+6. `sensitivity_flagged` — applies when the column name matches `ssn`, `email`, `dob`, `date_of_birth`, `phone`, `mrn`, `patient_id`, `address`, `zip`, `postal`, `first_name`, `last_name`, `full_name`, `account`, `credit_card`, `card_number`, `tax_id`. Description should mention sensitivity, **or** the column should have BigQuery policy tags.
 
 Bonus criterion (only counted when applicable):
-6. `caveats_present` — column max +2 if description mentions `deprecated`, `legacy`, `do not use`, `null when`, `null if`, `overloaded`, `multiple meanings`. Otherwise the criterion is recorded but contributes 0/0 to the column's max.
+7. `caveats_present` — column max +2 if description mentions a known caveat phrase (`deprecated`, `legacy`, `do not use`, `not enforced`, `by design`, `be aware`, `note:`, `caution:`, `may be null`, `duplicates exist`, `overloaded`, `multiple meanings`, etc.). Otherwise the criterion is recorded but contributes 0/0 to the column's max.
 
 ### Scoring formula
 
@@ -93,6 +94,8 @@ For each criterion, capture a short evidence snippet (≤90 chars, single line) 
 
 **Step 4 — assemble the report dict.**
 
+Include the **full** table description in `table_metadata.description` and the full `labels` dict in `table_metadata.labels` — the renderer surfaces both in a collapsible "Description & labels" panel at the top of each table card. Likewise include each column's full description in its `description` field. The `evidence` snippets inside each criterion are short (≤90 chars) and are only used to justify a specific score; the renderer uses the full descriptions for the user-facing display.
+
 The shape must match what `scripts/render_scorecard.py` expects:
 
 ```json
@@ -106,6 +109,8 @@ The shape must match what `scripts/render_scorecard.py` expects:
       "score": 87,
       "grade": "B",
       "table_metadata": {
+        "description": "Encounter records for inpatient, outpatient, and ED visits. Grain: one row per encounter version per coid. ...",
+        "labels": {"owner": "clinical-data-team", "phi": "true"},
         "points": 14,
         "max": 16,
         "criteria": [
@@ -127,12 +132,14 @@ The shape must match what `scripts/render_scorecard.py` expects:
             "name": "discharge_disposition_code",
             "type": "STRING",
             "mode": "NULLABLE",
-            "points": 6,
-            "max": 6,
+            "description": "Coded discharge status from the source ADT feed; values map to home, transfer, expired, hospice. Nullable for in-progress encounters.",
+            "points": 8,
+            "max": 8,
             "criteria": [
               {"name": "has_description", "points": 2, "max": 2, "passed": true, "evidence": "Coded discharge status..."},
               {"name": "not_type_echo", "points": 2, "max": 2, "passed": true, "evidence": "..."},
-              {"name": "coded_field_explained", "points": 2, "max": 2, "passed": true, "evidence": "Values map to home/transfer/expired/hospice"}
+              {"name": "derived_or_source_status", "points": 2, "max": 2, "passed": true, "evidence": "from the source ADT feed"},
+              {"name": "coded_field_explained", "points": 2, "max": 2, "passed": true, "evidence": "values map to home/transfer/expired/hospice"}
             ]
           }
         ]
