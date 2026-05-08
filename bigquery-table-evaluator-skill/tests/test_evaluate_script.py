@@ -7,6 +7,8 @@ from __future__ import annotations
 
 
 class TestWhereSuffix:
+    """``_where_suffix`` correctly appends a parenthesized WHERE clause."""
+
     def test_appends_when_present(self, script_module):
         assert script_module._where_suffix("x = 1") == "\nWHERE (x = 1)"
 

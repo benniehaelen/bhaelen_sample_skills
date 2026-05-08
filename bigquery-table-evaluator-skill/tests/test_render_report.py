@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 class TestRenderReportCli:
+    """Path A renderer CLI: JSON-in, Markdown / HTML out; expectation gate behavior."""
+
     def _fixture(self):
         return {
             "metadata": {

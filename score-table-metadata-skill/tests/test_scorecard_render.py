@@ -99,6 +99,8 @@ def sample_report():
 
 
 class TestMarkdown:
+    """Stable text-shape coverage for the Markdown renderer."""
+
     def test_top_level_header(self, render_module, sample_report):
         md = render_module.make_markdown(sample_report)
         assert md.startswith("# Metadata Scorecard\n")
@@ -203,6 +205,8 @@ class TestMarkdown:
 
 
 class TestHtml:
+    """Structural coverage for the HTML renderer: self-containment, escaping, anchors, theming."""
+
     def test_self_contained(self, render_module, sample_report):
         h = render_module.make_html(sample_report)
         assert "<style>" in h and "</style>" in h

@@ -6,6 +6,8 @@ import pytest
 
 
 class TestParseDuration:
+    """Coverage for the ``--expect-freshness-within`` duration parser."""
+
     def test_each_unit(self, validation_module):
         assert validation_module.parse_duration("30s") == dt.timedelta(seconds=30)
         assert validation_module.parse_duration("15m") == dt.timedelta(minutes=15)
@@ -22,6 +24,8 @@ class TestParseDuration:
 
 
 class TestParseNullRateArg:
+    """Coverage for the ``--expect-max-null-rate COL=RATE`` parser."""
+
     def test_basic(self, validation_module):
         assert validation_module.parse_null_rate_arg("user_id=0.05") == ("user_id", 0.05)
 
@@ -36,6 +40,8 @@ class TestParseNullRateArg:
 
 
 class TestValidateColumn:
+    """SQL-injection guard for column names interpolated into queries."""
+
     @pytest.mark.parametrize("good", ["a", "_x", "snake_case", "col1", "X__y"])
     def test_accepts_valid(self, validation_module, good):
         assert validation_module.validate_column(good) == good
@@ -47,6 +53,8 @@ class TestValidateColumn:
 
 
 class TestSplitTableId:
+    """SQL-injection guard for project.dataset.table identifiers."""
+
     def test_well_formed(self, validation_module):
         assert validation_module.split_table_id("my-proj.dataset.table") == ("my-proj", "dataset", "table")
 
@@ -57,6 +65,8 @@ class TestSplitTableId:
 
 
 class TestValidateWhereClause:
+    """Best-effort guard for user-supplied ``--where`` SQL fragments."""
+
     def test_passes_through_safe(self, validation_module):
         clause = "event_date >= '2026-01-01' AND user_id IS NOT NULL"
         assert validation_module.validate_where_clause(clause) == clause

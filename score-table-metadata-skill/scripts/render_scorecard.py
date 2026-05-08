@@ -24,6 +24,7 @@ from _serialize import serialize
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the Path A renderer."""
     parser = argparse.ArgumentParser(description="Render a BigQuery metadata scorecard.")
     parser.add_argument("--input", required=True, help="Path to a JSON scorecard (use '-' for stdin)")
     parser.add_argument("--output-md", default="metadata_scorecard.md", help="Markdown output path")
@@ -34,6 +35,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def _load_report(path: str) -> dict[str, Any]:
+    """Load a scorecard JSON from a file path or ``-`` for stdin."""
     if path == "-":
         return json.load(sys.stdin)
     with open(path, "r", encoding="utf-8") as f:
@@ -41,6 +43,7 @@ def _load_report(path: str) -> dict[str, Any]:
 
 
 def _evaluate_min_score(report: dict[str, Any], min_score: int) -> dict[str, Any]:
+    """Build a single ``min_score`` expectation entry over an already-scored report."""
     failing = [
         {"table_id": t["table_id"], "score": t["score"]}
         for t in report.get("tables") or []

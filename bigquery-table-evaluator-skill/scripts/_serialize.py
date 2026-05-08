@@ -29,6 +29,11 @@ def serialize(value: Any) -> Any:
 
 
 def bytes_human(value: int | None) -> str:
+    """Render a byte count as a human-readable string (``"852.13 MiB"``).
+
+    Uses binary units (KiB / MiB / ...) since BigQuery's billing is in
+    binary bytes. Returns ``"unknown"`` for ``None``.
+    """
     if value is None:
         return "unknown"
     units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
@@ -55,6 +60,7 @@ def short_int(n: int) -> str:
 
 
 def humanize_seconds(secs: int) -> str:
+    """Render a duration in seconds as a compact ``45s`` / ``2m`` / ``3h`` / ``5d`` string."""
     secs = int(secs)
     if secs < 60:
         return f"{secs}s"

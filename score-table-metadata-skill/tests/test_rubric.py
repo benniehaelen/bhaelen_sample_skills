@@ -6,6 +6,7 @@ import pytest
 
 
 def _criteria_by_name(block):
+    """Index a criterion list by ``name`` for lookup-style assertions."""
     return {c["name"]: c for c in block["criteria"]}
 
 
@@ -14,6 +15,8 @@ def _criteria_by_name(block):
 # ---------------------------------------------------------------------------
 
 class TestTableCriteria:
+    """Pass / partial / fail coverage for each of the 8 table-level criteria."""
+
     def test_business_description_pass(self, rubric_module):
         result = rubric_module.score_table_metadata(
             "Encounter records for inpatient, outpatient, and ED visits.", {}
@@ -104,6 +107,8 @@ class TestTableCriteria:
 # ---------------------------------------------------------------------------
 
 class TestColumnCriteria:
+    """Per-criterion behavior for column-level scoring, including conditional applicability."""
+
     def test_has_description_pass(self, rubric_module):
         result = rubric_module.score_column_metadata({
             "name": "user_id", "type": "STRING",
@@ -264,6 +269,8 @@ class TestColumnCriteria:
 
 
 class TestDescriptionSurfacing:
+    """The rubric output must carry full descriptions through for the renderer."""
+
     def test_column_metadata_includes_description(self, rubric_module):
         result = rubric_module.score_column_metadata({
             "name": "x", "type": "STRING", "description": "the actual full text",
@@ -287,6 +294,8 @@ class TestDescriptionSurfacing:
 # ---------------------------------------------------------------------------
 
 class TestAggregation:
+    """End-to-end scoring: weights, grade boundaries, issues list assembly."""
+
     @pytest.mark.parametrize("score,expected_grade", [
         (100, "A"), (90, "A"), (89, "B"), (80, "B"), (79, "C"),
         (70, "C"), (69, "D"), (60, "D"), (59, "F"), (0, "F"),
@@ -373,6 +382,8 @@ class TestAggregation:
 # ---------------------------------------------------------------------------
 
 class TestNamePatternDetectors:
+    """Verify which column names trip the conditional column criteria."""
+
     @pytest.mark.parametrize("name,expected", [
         ("discharge_disposition_code", True),
         ("status", False),

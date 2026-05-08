@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the Path B CLI."""
     parser = argparse.ArgumentParser(description="Score BigQuery table metadata against the data-steward rubric.")
     scope = parser.add_mutually_exclusive_group(required=True)
     scope.add_argument("--dataset", default=None, help="Score every table in project.dataset")
@@ -52,7 +53,13 @@ def parse_args() -> argparse.Namespace:
 
 
 def _normalize_table(table: "bigquery.Table") -> dict[str, Any]:
-    """Convert a ``bigquery.Table`` into the rubric's normalized input shape."""
+    """Convert a ``bigquery.Table`` into the rubric's normalized input shape.
+
+    BigQuery's ``full_table_id`` uses ``project:dataset.table`` (colon
+    after project); we rewrite it to the dotted form everywhere else uses.
+    Policy tags are flattened to the underlying name list — that's what
+    ``_check_sensitivity_flagged`` looks at.
+    """
     columns = []
     for field in table.schema:
         columns.append({
@@ -71,6 +78,7 @@ def _normalize_table(table: "bigquery.Table") -> dict[str, Any]:
 
 
 def _enumerate_dataset(client: "bigquery.Client", dataset_id: str) -> list[str]:
+    """List every table in a ``project.dataset`` as fully qualified table IDs."""
     project, dataset = split_dataset_id(dataset_id)
     full_ref = f"{project}.{dataset}"
     listed = client.list_tables(full_ref)
@@ -78,6 +86,12 @@ def _enumerate_dataset(client: "bigquery.Client", dataset_id: str) -> list[str]:
 
 
 def _evaluate_expectations(report: dict[str, Any], min_score: int | None) -> list[dict[str, Any]]:
+    """Build the expectations block for the report, given the user's threshold.
+
+    Returns an empty list when no threshold was set. When set, returns a
+    single expectation entry naming any tables below the threshold so the
+    renderer can show them and the CLI can exit non-zero.
+    """
     if min_score is None:
         return []
     failing = [
@@ -176,7 +190,11 @@ def main() -> int:
 
 
 def csv_arg_tables(value: str | None) -> list[str]:
-    """Parse a comma-separated list of fully qualified table IDs, validating each."""
+    """Parse a comma-separated list of fully qualified table IDs, validating each.
+
+    Raises ``ValueError`` (via ``split_table_id``) on any malformed entry,
+    so the CLI catches input errors before contacting BigQuery.
+    """
     if not value:
         return []
     out: list[str] = []

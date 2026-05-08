@@ -107,6 +107,12 @@ pre { background: var(--code-bg); color: var(--code-fg); padding: 12px; border-r
 
 
 def _theme_css(theme: str) -> str:
+    """Assemble inline CSS for the requested theme.
+
+    ``light`` / ``dark`` bake in a single palette; ``auto`` ships both
+    palettes and switches via the ``prefers-color-scheme`` media query
+    so the dashboard follows the viewer's OS preference.
+    """
     if theme == "light":
         tokens = _HTML_LIGHT_TOKENS
     elif theme == "dark":
@@ -124,10 +130,12 @@ def _theme_css(theme: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _e(value: Any) -> str:
+    """HTML-escape a value for safe interpolation; renders ``None`` as empty."""
     return html.escape("" if value is None else str(value), quote=True)
 
 
 def _format_int(value: Any) -> str:
+    """Render ints with thousands separators; pass through everything else."""
     if isinstance(value, bool) or value is None:
         return _e(value)
     if isinstance(value, int):
@@ -146,6 +154,9 @@ _CHART_PAD = 16
 _CHART_HEADER_H = 28
 _CHART_VALUE_GUTTER = 130  # right-side space for the value label
 
+# Null-rate severity buckets used by the per-column null-rate chart.
+# Thresholds reflect typical operational expectations: 0% is ideal,
+# ≤1% is healthy, ≤10% is worth a look, >10% is a flag.
 _BAR_SEVERITIES = (
     ("zero", "var(--bar-zero)", "0%"),
     ("ok", "var(--accent)", "≤1%"),
@@ -155,6 +166,7 @@ _BAR_SEVERITIES = (
 
 
 def _severity_for_rate(rate: float) -> str:
+    """Map a null-rate (0.0–1.0) to a severity bucket key from ``_BAR_SEVERITIES``."""
     if rate <= 0:
         return "zero"
     if rate <= 0.01:
@@ -165,6 +177,7 @@ def _severity_for_rate(rate: float) -> str:
 
 
 def _gradient_defs(prefix: str, severities: Iterable[tuple[str, str, str]]) -> str:
+    """Build SVG ``<defs>`` with one vertical gradient per severity bucket."""
     defs = ['<defs>']
     for key, color, _label in severities:
         defs.append(
@@ -178,6 +191,7 @@ def _gradient_defs(prefix: str, severities: Iterable[tuple[str, str, str]]) -> s
 
 
 def _null_rate_legend() -> str:
+    """Render the color-key legend for the null-rate chart."""
     swatches = []
     for _key, color, label in _BAR_SEVERITIES:
         swatches.append(
@@ -187,6 +201,7 @@ def _null_rate_legend() -> str:
 
 
 def _null_rate_chart(report: dict[str, Any]) -> str:
+    """Render the per-column null-rate SVG bar chart, or empty if no profile data."""
     profile = report.get("checks", {}).get("column_profile")
     if not profile or profile.get("status") != "complete":
         return ""
@@ -272,6 +287,7 @@ def _null_rate_chart(report: dict[str, Any]) -> str:
 
 
 def _distinct_count_chart(report: dict[str, Any]) -> str:
+    """Render the per-column approx-distinct SVG bar chart, or empty if no profile data."""
     profile = report.get("checks", {}).get("column_profile")
     if not profile or profile.get("status") != "complete":
         return ""
@@ -357,6 +373,7 @@ def _distinct_count_chart(report: dict[str, Any]) -> str:
 
 
 def _expectation_pill(entry: dict[str, Any]) -> str:
+    """Render one expectation as a colored status pill (``passed`` / ``failed`` / ``skipped`` / ``error``)."""
     status = entry.get("status", "skipped_no_data")
     name = entry.get("name", "expectation")
     if entry.get("column"):
@@ -395,6 +412,14 @@ def _expectation_pill(entry: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 def make_markdown(report: dict[str, Any]) -> str:
+    """Render an evaluation report as a Markdown document.
+
+    Layout: title, summary table (rows / bytes / partitioning / clustering),
+    expectations strip, warnings, then per-check sections (freshness,
+    duplicate keys, column profile, partition health, sample rows) and a
+    collapsible schema list. Sections that didn't run are omitted; sections
+    that ran but were skipped show their skip reason.
+    """
     meta = report["metadata"]
     lines: list[str] = []
     lines.append(f"# BigQuery Table Evaluation: `{meta['table_id']}`")
@@ -532,6 +557,14 @@ def make_markdown(report: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 def make_html(report: dict[str, Any], theme: str = "auto") -> str:
+    """Render an evaluation report as a single self-contained HTML dashboard.
+
+    Layout: header with table id, key metrics grid (rows / bytes /
+    partitioning / clustering), expectation pills, warnings callout,
+    SVG charts (null rates and approx-distinct counts), per-check cards,
+    and a collapsible schema. All CSS is inlined; no external assets,
+    no JavaScript.
+    """
     meta = report.get("metadata", {})
     table_id = meta.get("table_id", "(unknown)")
     color_scheme = {"light": "light", "dark": "dark", "auto": "light dark"}.get(theme, "light dark")

@@ -4,6 +4,8 @@ import pytest
 
 
 class TestSeverityForRate:
+    """Null-rate severity-bucket boundaries (zero / ok / warn / bad)."""
+
     @pytest.mark.parametrize(
         "rate, expected",
         [
@@ -23,6 +25,8 @@ class TestSeverityForRate:
 
 
 class TestMakeHtml:
+    """Structural coverage for the HTML evaluator dashboard: self-containment, escaping, theming."""
+
     def _full_report(self):
         return {
             "metadata": {

@@ -161,6 +161,12 @@ details.desc-panel[open] > summary { border-bottom: 1px solid var(--border); mar
 
 
 def _theme_css(theme: str) -> str:
+    """Assemble the CSS for the requested theme.
+
+    ``light`` and ``dark`` bake in a single palette; ``auto`` ships both
+    palettes and switches via the ``prefers-color-scheme`` media query
+    so the dashboard follows the viewer's OS preference.
+    """
     if theme == "light":
         tokens = _HTML_LIGHT_TOKENS
     elif theme == "dark":
@@ -178,11 +184,16 @@ def _theme_css(theme: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _e(value: Any) -> str:
+    """HTML-escape a value for safe interpolation into the dashboard."""
     return html.escape("" if value is None else str(value), quote=True)
 
 
 def _criterion_status(c: dict[str, Any]) -> str:
-    """One of 'pass', 'partial', 'fail', 'na'."""
+    """Map a criterion dict to its UI status: ``pass`` / ``partial`` / ``fail`` / ``na``.
+
+    ``na`` is the special case where ``max`` is 0 — used for the bonus
+    ``caveats_present`` criterion when a column has nothing to caveat.
+    """
     if c.get("max", 0) == 0:
         return "na"
     pts = c.get("points", 0)
@@ -195,6 +206,7 @@ def _criterion_status(c: dict[str, Any]) -> str:
 
 
 def _scope_summary(report: dict[str, Any]) -> str:
+    """One-line description of what was scored, for the page subtitle."""
     scope = report.get("scope") or {}
     if scope.get("dataset"):
         return f"dataset `{scope['dataset']}`"
@@ -207,14 +219,24 @@ def _scope_summary(report: dict[str, Any]) -> str:
 
 
 def _sorted_tables(report: dict[str, Any]) -> list[dict[str, Any]]:
-    """Tables sorted by score ascending — most actionable first."""
+    """Tables sorted by score ascending — most actionable first.
+
+    Both the summary table and the per-table cards use this ordering so
+    the worst metadata appears at the top of the page and at the top of
+    the summary, matching where a steward would want to focus first.
+    """
     tables = list(report.get("tables") or [])
     tables.sort(key=lambda t: (t.get("score") or 0, t.get("table_id") or ""))
     return tables
 
 
 def _slug(table_id: str | None) -> str:
-    """HTML anchor id derived from a fully qualified table id."""
+    """HTML anchor id derived from a fully qualified table id.
+
+    Replaces dots/dashes/underscores with hyphens and strips other chars
+    so ``project.dataset.table`` becomes ``t-project-dataset-table`` —
+    stable, deterministic, and safe in URL fragments.
+    """
     text = (table_id or "table").lower()
     out = []
     for ch in text:
@@ -227,6 +249,7 @@ def _slug(table_id: str | None) -> str:
 
 
 def _top_issue(table: dict[str, Any]) -> str:
+    """First (highest-priority) issue from the table's issues list, or empty."""
     issues = table.get("issues") or []
     return issues[0] if issues else ""
 
@@ -236,10 +259,23 @@ def _top_issue(table: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 def _md_status(c: dict[str, Any]) -> str:
+    """Markdown-friendly status label for a criterion."""
     return {"pass": "[pass]", "partial": "[partial]", "fail": "[fail]", "na": "[n/a]"}[_criterion_status(c)]
 
 
 def make_markdown(report: dict[str, Any]) -> str:
+    """Render a scorecard report as a Markdown document.
+
+    Layout:
+
+    1. H1 title + scope subtitle.
+    2. Expectations / warnings sections (when present).
+    3. Summary table — every scored table worst-first with score, grade,
+       and top issue.
+    4. Per-table sections (worst-first), each with: full description as a
+       blockquote, labels, table-criteria table, column-criteria table
+       (including each column's full description), and an issues list.
+    """
     lines: list[str] = []
     lines.append("# Metadata Scorecard")
     lines.append("")
@@ -360,6 +396,7 @@ def make_markdown(report: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 def _criterion_pill(c: dict[str, Any]) -> str:
+    """Colored status pill (e.g. ``pass 2/2`` or ``fail 0/2``) for a criterion."""
     status = _criterion_status(c)
     label = {"pass": "pass", "partial": "partial", "fail": "fail", "na": "n/a"}[status]
     return f'<span class="pill {status}"><span class="dot"></span>{label} {c.get("points", 0)}/{c.get("max", 0)}</span>'
@@ -397,6 +434,7 @@ def _column_description_block(description: str | None) -> str:
 
 
 def _criteria_block(criteria: list[dict[str, Any]]) -> str:
+    """Render a list of criterion dicts as a vertical row stack of pills."""
     rows: list[str] = []
     for c in criteria:
         ev = _e(c.get("evidence", ""))
@@ -411,6 +449,12 @@ def _criteria_block(criteria: list[dict[str, Any]]) -> str:
 
 
 def _column_card(col: dict[str, Any]) -> str:
+    """Render a single column as a collapsible ``<details>`` panel.
+
+    Closed by default; the summary line shows the column name, type,
+    score, and a count of failing/partial criteria. Expanding reveals
+    the full description and the per-criterion pills.
+    """
     pts = col.get("points", 0)
     mx = col.get("max", 0)
     pct = int(round(100 * pts / mx)) if mx else 100
@@ -431,6 +475,14 @@ def _column_card(col: dict[str, Any]) -> str:
 
 
 def _table_scorecard(table: dict[str, Any]) -> str:
+    """Render one table as a full scorecard card.
+
+    Card layout: header (id + score + grade pill), description-and-labels
+    panel (open by default), table-criteria pills, column-metadata roll-up
+    bar, per-column collapsibles (worst first), and an issues callout.
+    The card has an ``id`` attribute matching ``_slug(table_id)`` so the
+    summary table at the top of the page can anchor-link into it.
+    """
     tid = _e(table.get("table_id"))
     score = table.get("score", 0)
     grade = table.get("grade", "?")
@@ -485,6 +537,12 @@ def _table_scorecard(table: dict[str, Any]) -> str:
 
 
 def _summary_html(tables: list[dict[str, Any]]) -> str:
+    """Render the at-the-top summary table for an HTML scorecard.
+
+    One row per table: clickable id (anchors to the per-table card below),
+    score, grade pill, top issue. Tables are passed in display order;
+    the caller is responsible for sorting (worst-first).
+    """
     if not tables:
         return ""
     rows: list[str] = []
@@ -516,6 +574,7 @@ def _summary_html(tables: list[dict[str, Any]]) -> str:
 
 
 def _expectations_html(expectations: list[dict[str, Any]]) -> str:
+    """Render a top-of-page strip of expectation status pills."""
     if not expectations:
         return ""
     pills: list[str] = []
@@ -530,6 +589,7 @@ def _expectations_html(expectations: list[dict[str, Any]]) -> str:
 
 
 def _warnings_html(warnings: list[str]) -> str:
+    """Render top-of-page warnings (e.g. 'dataset has no tables') in a callout."""
     if not warnings:
         return ""
     items = "".join(f"<li>{_e(w)}</li>" for w in warnings)
@@ -537,6 +597,12 @@ def _warnings_html(warnings: list[str]) -> str:
 
 
 def make_html(report: dict[str, Any], *, theme: str = "auto") -> str:
+    """Render a scorecard report as a single self-contained HTML document.
+
+    Layout: H1 + scope subtitle, expectations / warnings strips, a summary
+    table linking to each per-table card, then one card per table
+    (worst-first). All CSS is inlined; no external assets, no JavaScript.
+    """
     css = _theme_css(theme)
     scope = _scope_summary(report)
     rubric = report.get("rubric_version", "1.0")

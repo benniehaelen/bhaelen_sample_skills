@@ -90,6 +90,8 @@ def _bad_schema():
 
 
 class TestNormalizeTable:
+    """``_normalize_table`` translates a bigquery.Table into the rubric input shape."""
+
     def test_normalize_drops_colon_in_full_id(self, score_script_module):
         tbl = _FakeTable("p:d.t", description="x", labels={}, schema=_good_schema())
         norm = score_script_module._normalize_table(tbl)
@@ -111,6 +113,8 @@ class TestNormalizeTable:
 
 
 class TestCsvArgTables:
+    """CLI `--tables` parser validates each id and surfaces malformed input."""
+
     def test_valid_list(self, score_script_module):
         result = score_script_module.csv_arg_tables("p.d.t1, p.d.t2")
         assert result == ["p.d.t1", "p.d.t2"]
@@ -125,6 +129,8 @@ class TestCsvArgTables:
 
 
 class TestMainTablesMode:
+    """End-to-end CLI runs in ``--tables`` mode against a stubbed BigQuery client."""
+
     def test_full_run_writes_artifacts(self, fake_client, score_script_module, tmp_path, monkeypatch):
         fake_client.add_table(
             "p.d.good",
@@ -212,6 +218,8 @@ class TestMainTablesMode:
 
 
 class TestMainDatasetMode:
+    """End-to-end CLI runs in ``--dataset`` mode (enumerate-then-score)."""
+
     def test_dataset_enumerates_tables(self, fake_client, score_script_module, tmp_path, monkeypatch):
         fake_client.add_dataset("p.d", ["t1", "t2"])
         for short in ("t1", "t2"):
@@ -250,6 +258,8 @@ class TestMainDatasetMode:
 
 
 class TestRenderScript:
+    """Path A renderer: JSON-in, Markdown / HTML out; min-score gate behavior."""
+
     def test_render_from_json(self, render_script_module, tmp_path, monkeypatch):
         sample = {
             "rubric_version": "1.0", "scope": {"tables": ["p.d.t"]},

@@ -6,6 +6,8 @@ import pytest
 
 
 class TestShortInt:
+    """Compact integer formatting (``1234567 -> '1.2M'``) for chart labels."""
+
     @pytest.mark.parametrize(
         "n, expected",
         [
@@ -25,6 +27,8 @@ class TestShortInt:
 
 
 class TestFormatDatetime:
+    """Human-friendly timestamp rendering (``"May 3, 2026 11:30 UTC (3h ago)"``)."""
+
     def test_utc_iso_with_relative(self, serialize_module):
         # Pin a recent value so the relative bit is predictable
         recent = dt.datetime.now(dt.timezone.utc).replace(microsecond=0) - dt.timedelta(hours=3, minutes=5)

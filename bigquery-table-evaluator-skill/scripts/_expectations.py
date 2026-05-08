@@ -14,6 +14,13 @@ from _validation import parse_duration, parse_null_rate_arg
 
 
 def schema_drift(current: list[dict[str, Any]], baseline: list[dict[str, Any]]) -> dict[str, Any]:
+    """Diff two top-level schema lists and return added / removed / changed columns.
+
+    Only top-level columns are compared; nested ``RECORD`` field changes are
+    not surfaced. ``changed`` flags differences in ``type`` or ``mode`` —
+    description changes are intentionally ignored (description churn is
+    common and not breaking).
+    """
     cur = {f.get("name"): f for f in current if f.get("name")}
     base = {f.get("name"): f for f in baseline if f.get("name")}
     added = sorted(set(cur) - set(base))
@@ -32,6 +39,12 @@ def schema_drift(current: list[dict[str, Any]], baseline: list[dict[str, Any]]) 
 
 
 def _completed_check_first_row(checks: dict[str, Any], name: str) -> dict[str, Any] | None:
+    """Return the first row of a check's results, or None if it didn't complete.
+
+    Checks that were skipped (e.g. ``skipped_estimate_exceeds_cap``) do not
+    have rows; expectation evaluators treat that as ``skipped_no_data``
+    rather than a failure.
+    """
     check = checks.get(name)
     if not check or check.get("status") != "complete":
         return None
@@ -40,6 +53,13 @@ def _completed_check_first_row(checks: dict[str, Any], name: str) -> dict[str, A
 
 
 def _parse_max_value(value: Any) -> dt.datetime | None:
+    """Parse a freshness ``MAX(column)`` value into a datetime.
+
+    Accepts the three shapes BigQuery / JSON serialization produce:
+    plain ISO-8601, ``Z``-suffixed UTC, and a bare DATE (with midnight
+    appended). Returns None if none of them parse — caller treats that
+    as missing data, not a failure.
+    """
     if value is None:
         return None
     text = str(value)

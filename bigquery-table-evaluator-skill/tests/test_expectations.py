@@ -17,6 +17,8 @@ def _ns(**overrides) -> argparse.Namespace:
 
 
 class TestSchemaDrift:
+    """``schema_drift`` produces correct added / removed / changed sets."""
+
     def test_no_drift(self, expectations_module):
         schema = [{"name": "a", "type": "STRING", "mode": "NULLABLE"}]
         drift = expectations_module.schema_drift(schema, schema)
@@ -48,6 +50,8 @@ class TestSchemaDrift:
 
 
 class TestEvaluateExpectations:
+    """End-to-end behavior of CI-style expectation flags against a populated report."""
+
     def _report(self):
         return {
             "metadata": {"num_rows": 100, "schema": []},

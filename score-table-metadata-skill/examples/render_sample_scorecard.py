@@ -25,6 +25,12 @@ from _scorecard_render import make_html  # noqa: E402
 
 
 def _good_table() -> dict:
+    """Demo table with rich, rubric-aligned metadata — should grade A.
+
+    Description hits all 8 table-level criteria; columns include code-set
+    explanations, units (UTC / ISO 8601), source/derivation framing, FK
+    references, sensitivity language, and policy tags on the email field.
+    """
     return {
         "table_id": "my-project.analytics.encounters",
         "description": (
@@ -56,6 +62,12 @@ def _good_table() -> dict:
 
 
 def _mid_table() -> dict:
+    """Demo table with mid-quality metadata — should grade D/F.
+
+    Description has business meaning and a labeled owner, but no grain,
+    keys, joins, sensitivity, history rule, or lineage. Column descriptions
+    are vague ("Type of event.") and miss provenance for every column.
+    """
     return {
         "table_id": "my-project.analytics.events",
         "description": (
@@ -77,6 +89,12 @@ def _mid_table() -> dict:
 
 
 def _bad_table() -> dict:
+    """Demo table with poor metadata — should grade F.
+
+    Generic table description, type-echo column descriptions ("string field",
+    "the ssn field"), missing sensitivity flag on the SSN column, and a
+    NULL description on email. This is what stewards should *not* ship.
+    """
     return {
         "table_id": "my-project.analytics.users",
         "description": "Users table.",
@@ -95,6 +113,11 @@ def _bad_table() -> dict:
 
 
 def build_sample_report() -> dict:
+    """Score the three demo tables and assemble a full sample report.
+
+    Adds a synthetic ``min_score`` expectation at threshold 70 so the
+    rendered dashboard exercises the expectations strip as well.
+    """
     tables = [score_table(t) for t in (_good_table(), _mid_table(), _bad_table())]
     expectations = [{
         "name": "min_score",

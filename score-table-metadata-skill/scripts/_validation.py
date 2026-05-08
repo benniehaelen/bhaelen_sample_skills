@@ -19,6 +19,12 @@ _FORBIDDEN_WHERE_TOKENS = ("`", ";", "--", "/*", "*/")
 
 
 def split_table_id(table_id: str) -> tuple[str, str, str]:
+    """Validate and split ``project.dataset.table`` into its three parts.
+
+    Raises ``ValueError`` for any input that doesn't match the strict regex.
+    The caller is then safe to interpolate the parts into SQL when wrapped
+    in backticks (see ``quote_table``).
+    """
     if not _TABLE_ID_RE.match(table_id):
         raise ValueError("Table must be in project.dataset.table form and contain only safe identifier characters.")
     project, dataset, table = table_id.split(".", 2)
@@ -26,6 +32,11 @@ def split_table_id(table_id: str) -> tuple[str, str, str]:
 
 
 def split_dataset_id(dataset_id: str) -> tuple[str, str]:
+    """Validate and split ``project.dataset`` into its two parts.
+
+    Used by ``--dataset`` mode of the metadata-scoring CLI to enumerate
+    every table in a dataset. Same hygiene rules as ``split_table_id``.
+    """
     if not _DATASET_ID_RE.match(dataset_id):
         raise ValueError("Dataset must be in project.dataset form and contain only safe identifier characters.")
     project, dataset = dataset_id.split(".", 1)
@@ -33,11 +44,18 @@ def split_dataset_id(dataset_id: str) -> tuple[str, str]:
 
 
 def quote_table(table_id: str) -> str:
+    """Backtick-quoted table reference safe to embed in SQL: ``` `project.dataset.table` ```."""
     project, dataset, table = split_table_id(table_id)
     return f"`{project}.{dataset}.{table}`"
 
 
 def validate_column(name: str) -> str:
+    """Trim and validate a column name; return it unchanged.
+
+    Raises ``ValueError`` if the name is empty or contains characters that
+    would be unsafe to interpolate into SQL even when backticked. Caller
+    interpolates the result via ``quote_column``.
+    """
     name = name.strip()
     if not name:
         raise ValueError("Column name cannot be empty.")
@@ -47,16 +65,22 @@ def validate_column(name: str) -> str:
 
 
 def quote_column(name: str) -> str:
+    """Backtick-quoted column reference safe to embed in SQL: ``` `column` ```."""
     return f"`{validate_column(name)}`"
 
 
 def csv_arg(value: str | None) -> list[str]:
+    """Parse a comma-separated list of column names, validating each entry."""
     if not value:
         return []
     return [validate_column(part) for part in value.split(",") if part.strip()]
 
 
 def parse_duration(value: str) -> dt.timedelta:
+    """Parse a short duration string (e.g. ``30s``, ``15m``, ``24h``, ``7d``) into a timedelta.
+
+    Raises ``ValueError`` for anything that doesn't match the allowed form.
+    """
     match = _DURATION_RE.match(value)
     if not match:
         raise ValueError(f"Invalid duration {value!r}. Use forms like 30s, 15m, 24h, 7d.")
@@ -64,6 +88,7 @@ def parse_duration(value: str) -> dt.timedelta:
 
 
 def parse_null_rate_arg(value: str) -> tuple[str, float]:
+    """Parse one ``COL=RATE`` argument; return validated column and float in [0, 1]."""
     if "=" not in value:
         raise ValueError(f"--expect-max-null-rate requires COL=RATE form, got {value!r}")
     col, rate = value.split("=", 1)

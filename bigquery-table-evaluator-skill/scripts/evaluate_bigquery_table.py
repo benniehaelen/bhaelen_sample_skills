@@ -44,6 +44,10 @@ if TYPE_CHECKING:
     from google.cloud import bigquery
 
 
+# Types that ``APPROX_COUNT_DISTINCT`` accepts directly. We use this set to
+# decide which columns get a distinct-cardinality estimate in the column
+# profile — calling APPROX_COUNT_DISTINCT on BYTES/GEOGRAPHY/JSON would
+# fail at execution time.
 APPROX_DISTINCT_TYPES = {
     "STRING",
     "INT64",
@@ -60,10 +64,13 @@ APPROX_DISTINCT_TYPES = {
     "TIMESTAMP",
 }
 
+# All scalar (non-RECORD) types. The column profile collects null counts
+# for any of these; only ``APPROX_DISTINCT_TYPES`` get the distinct estimate.
 SCALAR_TYPES = APPROX_DISTINCT_TYPES | {"BYTES", "GEOGRAPHY", "JSON"}
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the Path B CLI."""
     parser = argparse.ArgumentParser(description="Evaluate a Google BigQuery table.")
     parser.add_argument("--table", required=True, help="Fully qualified table ID: project.dataset.table")
     parser.add_argument("--billing-project", default=None, help="Project used by the BigQuery client for jobs")
@@ -95,6 +102,7 @@ def parse_args() -> argparse.Namespace:
 # ---------------------------------------------------------------------------
 
 def field_to_dict(field: "bigquery.SchemaField") -> dict[str, Any]:
+    """Recursively convert a ``SchemaField`` into a JSON-safe dict, preserving nested ``RECORD`` structure."""
     return {
         "name": field.name,
         "type": field.field_type,
@@ -105,10 +113,22 @@ def field_to_dict(field: "bigquery.SchemaField") -> dict[str, Any]:
 
 
 def is_top_level_scalar(field: "bigquery.SchemaField") -> bool:
+    """True if a column is profile-eligible: scalar type, not REPEATED.
+
+    REPEATED columns and nested RECORD types are excluded from the default
+    profile because COUNTIF / APPROX_COUNT_DISTINCT would scan/aggregate
+    array elements, which scales worse and changes the meaning of "null".
+    """
     return field.mode != "REPEATED" and field.field_type.upper() in SCALAR_TYPES
 
 
 def metadata_report(table: "bigquery.Table") -> dict[str, Any]:
+    """Build the ``metadata`` block of the report from a ``bigquery.Table``.
+
+    No data is scanned — this reads only the table resource fields
+    (description, partitioning, clustering, labels, schema, row/byte
+    counts that BigQuery already maintains as metadata).
+    """
     time_partitioning = None
     if table.time_partitioning:
         time_partitioning = {
@@ -151,6 +171,15 @@ def run_query_with_guard(
     max_bytes_billed: int,
     label: str,
 ) -> dict[str, Any]:
+    """Run a data-scanning query under a dry-run cost guard.
+
+    Cost-safety invariant: every query that scans table data goes through
+    here. We dry-run first to estimate ``totalBytesProcessed``; if that
+    estimate exceeds ``max_bytes_billed``, we skip execution and record
+    ``status: "skipped_estimate_exceeds_cap"``. Only when the estimate is
+    under the cap do we actually run the query, with ``maximum_bytes_billed``
+    enforced as a hard stop on the BigQuery side as a second line of defense.
+    """
     from google.cloud import bigquery  # lazy: only needed when actually scanning data
     dry_config = bigquery.QueryJobConfig(dry_run=True, use_query_cache=False)
     dry_job = client.query(sql, job_config=dry_config, location=location)
@@ -193,6 +222,13 @@ def check_partitions(
     location: str | None,
     max_bytes_billed: int,
 ) -> dict[str, Any]:
+    """Query ``INFORMATION_SCHEMA.PARTITIONS`` for partition count, skew, and freshness.
+
+    Reads metadata, not table data — typically very cheap, but still
+    routed through ``run_query_with_guard`` for consistency. The
+    ``__NULL__`` and ``__UNPARTITIONED__`` magic partition IDs are
+    excluded from oldest/newest aggregation but counted separately.
+    """
     project, dataset, table = split_table_id(table_id)
     sql = f"""
     SELECT
@@ -216,6 +252,7 @@ def check_partitions(
 
 
 def _where_suffix(where_clause: str | None) -> str:
+    """Wrap the user's WHERE expression in parens for safe AND-combinable injection."""
     return f"\nWHERE ({where_clause})" if where_clause else ""
 
 
@@ -228,6 +265,7 @@ def check_freshness(
     max_bytes_billed: int,
     where_clause: str | None = None,
 ) -> dict[str, Any]:
+    """Compute ``MAX(column)`` to gauge the most recent value in a DATE/DATETIME/TIMESTAMP column."""
     sql = f"SELECT MAX({quote_column(column)}) AS max_value FROM {quote_table(table_id)}{_where_suffix(where_clause)}"
     result = run_query_with_guard(client, sql, location=location, max_bytes_billed=max_bytes_billed, label="freshness")
     if where_clause:
@@ -244,6 +282,12 @@ def check_duplicate_keys(
     max_bytes_billed: int,
     where_clause: str | None = None,
 ) -> dict[str, Any]:
+    """Count distinct key groups with >1 row and the total excess rows.
+
+    ``duplicate_excess_rows`` = sum of (group_size - 1), which is the
+    number of rows that would be removed by a perfect dedupe. A clean
+    table has both counters at 0.
+    """
     quoted = [quote_column(col) for col in key_cols]
     select_keys = ", ".join(quoted)
     sql = f"""
@@ -274,6 +318,16 @@ def profile_columns(
     max_bytes_billed: int,
     where_clause: str | None = None,
 ) -> dict[str, Any]:
+    """Build one query that emits a null count + (optional) approx-distinct per column.
+
+    Selection rules:
+    - If ``requested_cols`` is non-empty, profile exactly those — but bail
+      with ``skipped_missing_columns`` if any aren't in the schema.
+    - Otherwise, profile up to ``max_profile_cols`` top-level scalar columns.
+    The query is a single SELECT with one COUNTIF and (where applicable)
+    one APPROX_COUNT_DISTINCT per column, so total cost ~ one full scan
+    regardless of how many columns are profiled.
+    """
     field_by_name = {field.name: field for field in fields}
     if requested_cols:
         missing = [col for col in requested_cols if col not in field_by_name]
@@ -303,6 +357,12 @@ def profile_columns(
 
 
 def sample_rows(client: "bigquery.Client", table: "bigquery.Table", limit: int) -> dict[str, Any]:
+    """Fetch up to ``limit`` rows via ``tabledata.list`` (no scan, no SQL).
+
+    This uses the BigQuery Storage API row endpoint, which is free and
+    doesn't count against query quotas — that's why it isn't subject to
+    the dry-run guard.
+    """
     if limit <= 0:
         return {"status": "disabled", "rows": []}
     rows = []
