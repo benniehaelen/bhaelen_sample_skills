@@ -15,6 +15,7 @@ One of:
 
 ## Optional inputs
 - `expect_min_score`: integer 0-100; exit 3 if any table scores below it (CI gate).
+- `rubric_config`: path to a JSON file overriding the rubric data (weights, keyword lists, regex triggers, thresholds, grade cutoffs). Omitted sections fall back to the built-in defaults. See "Configuring the rubric" below.
 - HTML theme: `auto` (default) / `light` / `dark`.
 
 ## Rubric (v1.0)
@@ -54,8 +55,69 @@ For each table:
 - `table_ratio = table_points / table_max`  (table_max is always 16)
 - For each column: `col_ratio = col_points / col_max`  (col_max varies by name — see above)
 - `column_mean = mean(col_ratio for each column)`
-- `score = round(100 * (0.4 * table_ratio + 0.6 * column_mean))`
-- Letter grade: 90+ A, 80-89 B, 70-79 C, 60-69 D, <60 F.
+- `score = round(100 * (weights.table * table_ratio + weights.column * column_mean))`
+- Default weights: `weights.table = 0.4`, `weights.column = 0.6`.
+- Default letter grades: 90+ A, 80-89 B, 70-79 C, 60-69 D, <60 F. Cutoffs are configurable.
+
+### Configuring the rubric
+
+The rubric *data* — keyword lists, regex triggers, weights, grade cutoffs, length thresholds — can be overridden by a JSON config file. The check *logic* (what counts as full credit vs. partial vs. fail) is fixed in code. Pass the file via `--rubric-config <path>` to the bundled CLI; Path A agents should read the file and respect its contents when grading.
+
+Sections you omit fall back to the built-in defaults, so a partial config that only adjusts weights is valid. The shipped `examples/rubric_default.json` reproduces the built-in scoring exactly and is a useful starting template.
+
+Schema (all sections optional except where noted):
+
+```jsonc
+{
+  "name": "data-steward-default",
+  "version": "1.0",
+  "weights": {"table": 0.4, "column": 0.6},                 // must sum to ~1.0
+  "grade_cutoffs": {"A": 90, "B": 80, "C": 70, "D": 60},   // strictly decreasing, in [0,100]
+  "thresholds": {
+    "table_desc_min": 30,                  // chars; below = partial credit on business_description
+    "column_desc_min_partial": 8,          // chars; below = fail on not_type_echo
+    "column_desc_min_full": 15,            // chars; below = partial on not_type_echo
+    "evidence_max_chars": 90               // truncation length for evidence snippets
+  },
+  "column_triggers": {                     // case-insensitive regex strings
+    "coded":     "_(code|status|flag|type|cd|ind|category)$",
+    "measure":   "(^|_)(amount|count|rate|...)(_|$)",
+    "sensitive": "(^|_)(ssn|email|dob|...)(_|$)"
+  },
+  "keywords": {                            // per-criterion buckets: strong / weak / label
+    "<criterion-name>": {"strong": [...], "weak": [...], "label": [...]}
+  },
+  "type_echo_patterns": ["...regex...", "..."],   // patterns that fail not_type_echo
+  "generic_table_desc_re": "...regex..."          // pattern that downgrades business_description
+}
+```
+
+Valid criterion names for `keywords`:
+
+- Table-level: `grain_statement`, `primary_keys`, `join_guidance`, `ownership`, `sensitivity`, `history_rule`, `lineage`. (`business_description` has no keyword list — it's length- and regex-based.)
+- Column-level: `coded_field_explained`, `units_or_format`, `sensitivity_flagged`, `caveats_present`, `derived_or_source_status`. (`has_description` and `not_type_echo` are length- and regex-based.)
+
+**Bucket meanings:**
+- `strong` — full credit (2 pts) when any substring matches the description.
+- `weak` — partial credit (1 pt) when any substring matches, only used by criteria that have a tiered structure (`primary_keys`, `join_guidance`, `ownership`, `sensitivity`, `lineage`).
+- `label` — used by `ownership`, `sensitivity`, and `lineage` only. If any BigQuery label key matches, the criterion gets full credit (more reliable than description text).
+
+**Path A note (semantic grading with a custom config):** if the user supplies a rubric config, read it before scoring. The keyword matchers are still guides, not rules — apply judgment when the description plainly satisfies a criterion even if it doesn't use a listed keyword. But the *weights*, *grade cutoffs*, *trigger regexes*, and *thresholds* are authoritative — apply them exactly so Path A and Path B agree on the numeric score and grade.
+
+Provenance is stamped into the report under the top-level `rubric_config` key:
+
+```jsonc
+{
+  "rubric_config": {
+    "source": "/abs/path/to/rubric.json",   // or "builtin"
+    "name": "data-steward-default",
+    "version": "1.0",
+    "sha256": "a1b2c3..."                   // sha256 of the file bytes; "" for builtin
+  }
+}
+```
+
+The renderer surfaces this in the scorecard subtitle so reviewers can tell at a glance which rubric was applied.
 
 ## Implementation
 
@@ -101,6 +163,12 @@ The shape must match what `scripts/render_scorecard.py` expects:
 ```json
 {
   "rubric_version": "1.0",
+  "rubric_config": {
+    "source": "builtin",
+    "name": "data-steward-default",
+    "version": "1.0",
+    "sha256": ""
+  },
   "scored_at": "2026-05-04T17:32:00+00:00",
   "scope": {"dataset": "project.dataset"},
   "tables": [
@@ -145,8 +213,22 @@ The shape must match what `scripts/render_scorecard.py` expects:
         ]
       },
       "issues": [
-        "No current-state vs. history rule; clarify versioning or how to filter to the latest record.",
-        "Source system / lineage not mentioned."
+        {
+          "criterion": "history_rule",
+          "message": "No current-state vs. history rule; clarify versioning or how to filter to the latest record.",
+          "suggestion": "Looks like a type-2 SCD. Add: 'Type-2 SCD; filter `latest_record_ind=1` for current state.'"
+        },
+        {
+          "criterion": "lineage",
+          "message": "Source system / lineage not mentioned.",
+          "suggestion": "Add 'Loaded from <source-system>' to the description, or attach a `source=<system>` label."
+        },
+        {
+          "criterion": "has_description",
+          "column": "user_id",
+          "message": "Column `user_id` has no description.",
+          "suggestion": "Add: 'Stable identifier for the user; sourced from the upstream registry.'"
+        }
       ]
     }
   ],
@@ -156,6 +238,23 @@ The shape must match what `scripts/render_scorecard.py` expects:
 ```
 
 The `score`, `grade`, `points`/`max` totals, `mean_normalized`, and the `passed` boolean must all be self-consistent. Compute them; do not invent.
+
+**Issues with suggested fixes (Path A): write concrete, table-specific suggestions.**
+
+Each entry in `issues` is a dict with `criterion`, `message`, `suggestion`, and (for column-level issues) `column`. The `message` describes what's missing; the `suggestion` is a concrete proposed fix that the steward can paste into the table or column description with minimal editing.
+
+The bundled Python heuristic produces *generic templates* (e.g., "Add: 'Grain: one row per `<entity>`.'"). You can do far better — you have the description and full schema in context. When grading semantically, write suggestions that:
+
+- Reference real column names from the table's schema, not placeholders.
+- Use the existing description's tone and verbosity. If the description is terse, suggest a terse fix; if it's a paragraph, suggest a sentence or two.
+- For grain / primary keys / joins: name the actual likely PK/FK columns based on naming conventions (`id`, `*_id`) and types.
+- For sensitivity: when the table contains columns matching PHI/PII patterns, list them by name in the suggestion so the steward can verify.
+- For history rules: if the schema includes `valid_from`/`valid_to` or `*_record_ind`, suggest specific type-2 SCD phrasing referencing those columns.
+- For column-level issues: keep suggestions short (one or two sentences) and pasteable directly into the column description. For `units_or_format`, use the column type and name to pick units (e.g., `event_timestamp` → "in UTC, ISO 8601"; `total_amount_usd` → currency is already obvious, suggest decimal precision instead).
+
+Suggestions should be best-effort proposals, not authoritative facts. Phrase them as drafts ("Add: '...'.") so the steward knows they need to verify before committing. **Never fabricate** facts you can't infer from the description and schema — for example, don't claim a specific source system unless the description or labels already hint at one.
+
+The renderer surfaces `message` prominently and `suggestion` underneath in muted/italic styling, so a reader scanning the scorecard sees both at a glance.
 
 **Step 5 — render.**
 
@@ -191,6 +290,15 @@ Or for an explicit list:
 ```bash
 python scripts/score_table_metadata.py \
   --tables my-project.analytics.events,my-project.analytics.users \
+  --output-json scorecard.json --output-md scorecard.md
+```
+
+To apply a custom rubric:
+
+```bash
+python scripts/score_table_metadata.py \
+  --dataset my-project.analytics \
+  --rubric-config path/to/rubric.json \
   --output-json scorecard.json --output-md scorecard.md
 ```
 

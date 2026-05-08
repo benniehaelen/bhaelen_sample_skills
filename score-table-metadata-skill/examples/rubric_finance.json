@@ -1,0 +1,23 @@
+{
+  "name": "data-steward-finance",
+  "version": "1.0",
+  "weights": {"table": 0.35, "column": 0.65},
+  "grade_cutoffs": {"A": 92, "B": 84, "C": 75, "D": 65},
+  "thresholds": {
+    "table_desc_min": 40,
+    "column_desc_min_partial": 10,
+    "column_desc_min_full": 20,
+    "evidence_max_chars": 90
+  },
+  "column_triggers": {
+    "sensitive": "(^|_)(ssn|tin|tax_id|ein|account|account_number|iban|swift|routing|credit_card|card_number|cvv|pan|customer_id|email|phone|first_name|last_name|full_name|address|zip|postal|dob|date_of_birth)(_|$)"
+  },
+  "keywords": {
+    "coded_field_explained": {
+      "strong": ["value", "values", "code", "codes", "code system", "enum", "category", "categories", "y/n", "yes/no", "0/1", "true/false", "valid values", "allowed values", "code set", "iso 4217", "iso 3166", "naics", "sic", "lei", "cusip", "isin", "mcc", "ofac"]
+    },
+    "sensitivity_flagged": {
+      "strong": ["pii", "npi", "non-public personal information", "sensitive", "restricted", "confidential", "personally identifiable", "do not export", "gdpr", "ccpa", "pci", "policy:", "classification:", "kyc", "aml", "ofac", "sanctions"]
+    }
+  }
+}

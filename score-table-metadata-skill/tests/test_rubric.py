@@ -341,7 +341,7 @@ class TestAggregation:
         })
         assert result["score"] == 0
         assert result["grade"] == "F"
-        assert any("description" in i.lower() for i in result["issues"])
+        assert any("description" in i["message"].lower() for i in result["issues"])
 
     def test_no_columns_does_not_crash(self, rubric_module):
         result = rubric_module.score_table({
@@ -360,7 +360,7 @@ class TestAggregation:
             "labels": {},
             "columns": [{"name": "id", "type": "STRING", "description": "id field"}],
         })
-        joined = " ".join(result["issues"]).lower()
+        joined = " ".join(i["message"] for i in result["issues"]).lower()
         assert "grain" in joined or "primary" in joined
 
     def test_issues_list_capped(self, rubric_module):
@@ -375,6 +375,101 @@ class TestAggregation:
         })
         # 8 table issues + 5 column issues max
         assert len(result["issues"]) <= 8 + 5
+
+    def test_issue_dict_shape(self, rubric_module):
+        """Every issue is a dict with criterion/message/suggestion keys."""
+        result = rubric_module.score_table({
+            "table_id": "p.d.t",
+            "description": None,
+            "labels": {},
+            "columns": [{"name": "user_id", "type": "STRING", "description": None}],
+        })
+        assert result["issues"], "expected at least one issue for an empty-metadata table"
+        for issue in result["issues"]:
+            assert isinstance(issue, dict)
+            assert "criterion" in issue
+            assert "message" in issue and issue["message"]
+            assert "suggestion" in issue and issue["suggestion"]
+
+    def test_column_issue_includes_column_name(self, rubric_module):
+        """Column-level issues carry the column name on a dedicated key."""
+        result = rubric_module.score_table({
+            "table_id": "p.d.t",
+            "description": "Encounter records. Grain: one row per encounter. Primary key encounter_id. "
+                           "Join to patient. Owner: data-team. Contains PHI. SCD type-2. Loaded from ADT source.",
+            "labels": {},
+            "columns": [{"name": "user_email", "type": "STRING", "description": None}],
+        })
+        col_issues = [i for i in result["issues"] if i.get("column")]
+        assert any(i["column"] == "user_email" for i in col_issues)
+
+
+# ---------------------------------------------------------------------------
+# Suggested-fix heuristics
+# ---------------------------------------------------------------------------
+
+class TestSuggestedFixes:
+    """Heuristic suggested-fix functions: schema-aware where possible, never fabricated."""
+
+    def test_grain_suggestion_uses_likely_pk(self, rubric_module):
+        text = rubric_module._suggest_grain_statement(
+            [{"name": "encounter_id", "type": "STRING"}, {"name": "amount", "type": "FLOAT64"}]
+        )
+        assert "encounter_id" in text
+
+    def test_grain_suggestion_falls_back_when_no_pk(self, rubric_module):
+        text = rubric_module._suggest_grain_statement([{"name": "amount", "type": "FLOAT64"}])
+        assert "<entity>" in text
+
+    def test_primary_keys_suggestion_for_composite(self, rubric_module):
+        text = rubric_module._suggest_primary_keys(
+            [{"name": "coid", "type": "STRING"}, {"name": "encounter_id", "type": "STRING"},
+             {"name": "version_id", "type": "INT64"}]
+        )
+        assert "encounter_id" in text and ("composite" in text or "Primary key" in text)
+
+    def test_join_guidance_picks_fk_candidate(self, rubric_module):
+        text = rubric_module._suggest_join_guidance(
+            [{"name": "id", "type": "STRING"}, {"name": "patient_id", "type": "STRING"}]
+        )
+        assert "patient_id" in text
+
+    def test_sensitivity_lists_triggered_columns(self, rubric_module):
+        text = rubric_module._suggest_sensitivity(
+            [{"name": "patient_email", "type": "STRING"}, {"name": "amount", "type": "FLOAT64"}],
+            rubric_module.DEFAULT_CONFIG,
+        )
+        assert "patient_email" in text and "PHI/PII" in text
+
+    def test_history_rule_detects_scd_signal(self, rubric_module):
+        text = rubric_module._suggest_history_rule(
+            [{"name": "valid_from", "type": "DATE"}, {"name": "valid_to", "type": "DATE"}]
+        )
+        assert "SCD" in text
+
+    def test_units_or_format_picks_currency_for_amount(self, rubric_module):
+        text = rubric_module._suggest_units_or_format({"name": "total_amount"})
+        assert "currency" in text.lower() or "USD" in text
+
+    def test_units_or_format_picks_timezone_for_timestamp(self, rubric_module):
+        text = rubric_module._suggest_units_or_format({"name": "event_timestamp"})
+        assert "UTC" in text or "timezone" in text.lower()
+
+    def test_units_or_format_picks_percentage_for_pct(self, rubric_module):
+        text = rubric_module._suggest_units_or_format({"name": "response_pct"})
+        assert "percent" in text.lower() or "fraction" in text.lower()
+
+    def test_column_suggestions_always_reference_column_name(self, rubric_module):
+        col = {"name": "user_id", "type": "STRING"}
+        for fn in (
+            rubric_module._suggest_has_description,
+            rubric_module._suggest_not_type_echo,
+            rubric_module._suggest_derived_or_source_status,
+            rubric_module._suggest_coded_explained,
+            rubric_module._suggest_units_or_format,
+            rubric_module._suggest_sensitivity_flagged,
+        ):
+            assert "user_id" in fn(col), f"{fn.__name__} did not reference the column name"
 
 
 # ---------------------------------------------------------------------------

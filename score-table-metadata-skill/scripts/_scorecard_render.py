@@ -128,7 +128,9 @@ details.col-detail .crit-list { margin: 4px 0 8px; }
 .issues { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 8px; padding: 10px 14px; margin-top: 12px; }
 .issues h3 { margin-top: 0; color: inherit; }
 .issues ul { margin: 0; padding-left: 18px; font-size: 13px; }
-.issues li { margin: 3px 0; }
+.issues li { margin: 6px 0; }
+.issue-suggestion { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; font-style: italic; }
+.issue-suggestion::before { content: "Suggested: "; font-weight: 600; font-style: normal; }
 .exp-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
 .no-issues { color: var(--muted); font-size: 12px; font-style: italic; padding: 4px 0; }
 details.desc-panel { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; margin: 12px 0; }
@@ -218,6 +220,27 @@ def _scope_summary(report: dict[str, Any]) -> str:
     return f"{len(tables)} tables"
 
 
+def _rubric_descriptor(report: dict[str, Any]) -> str:
+    """Short human-readable string identifying the rubric used.
+
+    Produces e.g. ``data-steward-default v1.0 (builtin)`` for the default
+    rubric, or ``custom-name v2.0 (custom.json @ a1b2c3d4)`` when a config
+    file was supplied. Falls back to ``rubric v<rubric_version>`` for old
+    reports that pre-date the ``rubric_config`` block.
+    """
+    rc = report.get("rubric_config")
+    rubric_v = report.get("rubric_version", "1.0")
+    if not isinstance(rc, dict):
+        return f"rubric v{rubric_v}"
+    name = rc.get("name", "rubric")
+    version = rc.get("version", rubric_v)
+    source = rc.get("source", "builtin")
+    sha = (rc.get("sha256") or "")[:8]
+    if source == "builtin":
+        return f"{name} v{version} (builtin)"
+    return f"{name} v{version} ({source} @ {sha})" if sha else f"{name} v{version} ({source})"
+
+
 def _sorted_tables(report: dict[str, Any]) -> list[dict[str, Any]]:
     """Tables sorted by score ascending — most actionable first.
 
@@ -248,10 +271,30 @@ def _slug(table_id: str | None) -> str:
     return f"t-{slug}" if slug else "t-unknown"
 
 
+def _issue_parts(issue: Any) -> tuple[str, str]:
+    """Return (message, suggestion) for either string- or dict-shaped issues.
+
+    The rubric has emitted dict-shaped issues since the suggested-fix feature
+    landed. Older Path A reports (or hand-built fixtures) may still ship plain
+    strings; we accept both so old reports keep rendering.
+    """
+    if isinstance(issue, dict):
+        return str(issue.get("message", "")), str(issue.get("suggestion", ""))
+    return str(issue), ""
+
+
 def _top_issue(table: dict[str, Any]) -> str:
-    """First (highest-priority) issue from the table's issues list, or empty."""
+    """First (highest-priority) issue's message, or empty.
+
+    Used by the summary table at the top of the scorecard. The suggestion
+    is intentionally dropped — there's no room for it in a one-line cell;
+    the per-table card below shows the full message + suggestion.
+    """
     issues = table.get("issues") or []
-    return issues[0] if issues else ""
+    if not issues:
+        return ""
+    msg, _ = _issue_parts(issues[0])
+    return msg
 
 
 # ---------------------------------------------------------------------------
@@ -281,8 +324,8 @@ def make_markdown(report: dict[str, Any]) -> str:
     lines.append("")
     scope = _scope_summary(report)
     scored_at = report.get("scored_at")
-    rubric = report.get("rubric_version", "1.0")
-    lines.append(f"_Scope: {scope} — rubric v{rubric}_")
+    rubric_desc = _rubric_descriptor(report)
+    lines.append(f"_Scope: {scope} — {rubric_desc}_")
     if scored_at:
         lines.append(f"_Scored: {format_datetime(scored_at)}_")
     lines.append("")
@@ -386,7 +429,10 @@ def make_markdown(report: dict[str, Any]) -> str:
         if issues:
             lines.append("### Issues")
             for issue in issues:
-                lines.append(f"- {issue}")
+                msg, suggestion = _issue_parts(issue)
+                lines.append(f"- {msg}")
+                if suggestion:
+                    lines.append(f"  - _Suggested:_ {suggestion}")
             lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
@@ -497,7 +543,12 @@ def _table_scorecard(table: dict[str, Any]) -> str:
     issues = table.get("issues") or []
     issues_html = ""
     if issues:
-        items = "".join(f"<li>{_e(i)}</li>" for i in issues)
+        items_list: list[str] = []
+        for issue in issues:
+            msg, suggestion = _issue_parts(issue)
+            sug_html = f'<span class="issue-suggestion">{_e(suggestion)}</span>' if suggestion else ""
+            items_list.append(f"<li>{_e(msg)}{sug_html}</li>")
+        items = "".join(items_list)
         issues_html = f'<div class="issues"><h3>Issues</h3><ul>{items}</ul></div>'
 
     columns_html = ""
@@ -605,7 +656,7 @@ def make_html(report: dict[str, Any], *, theme: str = "auto") -> str:
     """
     css = _theme_css(theme)
     scope = _scope_summary(report)
-    rubric = report.get("rubric_version", "1.0")
+    rubric_desc = _rubric_descriptor(report)
     scored_at = report.get("scored_at")
     scored_str = f" · {format_datetime(scored_at)}" if scored_at else ""
 
@@ -626,7 +677,7 @@ def make_html(report: dict[str, Any], *, theme: str = "auto") -> str:
         f'<style>{css}</style>'
         '</head><body><div class="wrap">'
         '<h1>Metadata Scorecard</h1>'
-        f'<p class="subtitle">{_e(scope)} · rubric v{_e(rubric)}{_e(scored_str)}</p>'
+        f'<p class="subtitle">{_e(scope)} · {_e(rubric_desc)}{_e(scored_str)}</p>'
         f'{expectations_html}'
         f'{warnings_html}'
         f'{summary_html}'

@@ -11,7 +11,7 @@ This repo packages Claude Code skills. Each top-level directory is one skill. Cu
 
 Skills are intentionally **self-contained**: each one is meant to be drop-in copy-pasteable into another repo without cross-skill imports. That's why `_serialize.py` and `_validation.py` are duplicated between the two skills (with the second skill adding `split_dataset_id` to its copy) — promoting them to a shared `_common/` package would couple the skills and break the drop-in property. Keep this convention unless and until a third skill makes the duplication actively painful.
 
-All commands below are run from inside a skill directory (`cd bigquery-table-evaluator-skill` or `cd score-table-metadata-skill`).
+All commands below are run from inside a skill directory (`cd bigquery-table-evaluator-skill` or `cd score-table-metadata-skill`). Each skill gets its own `.venv` — don't share an environment across skills, since the self-containment convention means versions and dependencies can drift independently.
 
 ## Common commands
 
@@ -54,7 +54,7 @@ Each skill has two ways to run, and both must produce **byte-identical** Markdow
 1. **Path A — BigQuery MCP connector** (preferred when available). The agent calls the MCP tools (`mcp__bigquery__get_table_info`, `mcp__bigquery__execute_sql`, `mcp__bigquery__list_table_ids`), assembles a report dict matching the shape documented in `SKILL.md`, then runs the skill's renderer script to emit Markdown / HTML.
 2. **Path B — local CLI script.** Uses the `google-cloud-bigquery` client directly. Only this entrypoint imports the BigQuery SDK.
 
-The shared contract is the JSON report shape (documented in each `SKILL.md`). When changing the report shape, update **both** paths and the renderer in lock-step.
+The shared contract is the JSON report shape (documented in each `SKILL.md`). When changing the report shape, update **both** paths and the renderer in lock-step. There is no golden-file parity test between Path A and Path B output — parity is enforced by both paths feeding the same renderer module from the same JSON shape, so review changes to the report dict assembly with that contract in mind.
 
 ### Module split inside `scripts/` (shared between skills)
 
@@ -69,7 +69,7 @@ Skill-specific modules:
 
 - `bigquery-table-evaluator-skill/scripts/_expectations.py` — CI-style expectation evaluation and schema-drift detection.
 - `bigquery-table-evaluator-skill/scripts/_render.py` — Markdown + HTML rendering, including SVG charts. Single source of truth for that skill's output.
-- `score-table-metadata-skill/scripts/_rubric.py` — heuristic rubric (8 table-level criteria, 6 column-level, conditional applicability based on column-name patterns). Single source of truth for deterministic scoring.
+- `score-table-metadata-skill/scripts/_rubric.py` — heuristic rubric (8 table-level criteria, 6 column-level, conditional applicability based on column-name patterns). Single source of truth for deterministic scoring. Rubric *data* (keyword lists, regex triggers, weights, grade cutoffs, thresholds) is externalizable via `--rubric-config <path>` (JSON; schema in `SKILL.md`); check *logic* stays in code. The built-in `DEFAULT_CONFIG` reproduces historical scoring exactly, so existing reports and tests are unaffected when no config is passed.
 - `score-table-metadata-skill/scripts/_scorecard_render.py` — Markdown + HTML scorecard rendering.
 
 ### Cost-safety invariant (evaluator only)
@@ -89,3 +89,5 @@ The metadata-scoring rubric in `_rubric.py` distinguishes **always-applicable** 
 ### Tests
 
 Each skill's `tests/conftest.py` installs stub modules for `google.cloud.bigquery` and `google.api_core.exceptions` so the test suite runs with no GCP setup. Tests load internal modules directly via per-module pytest fixtures — when adding a new internal module to `scripts/`, add a matching fixture there.
+
+Test files mirror `scripts/` one-to-one: `tests/test_<module>.py` corresponds to `scripts/_<module>.py` (e.g., `test_validation.py` ↔ `_validation.py`, `test_rubric.py` ↔ `_rubric.py`). The CLI entrypoints have their own test files (`test_evaluate_script.py`, `test_score_script.py`, `test_render_report.py`, `test_scorecard_render.py`).

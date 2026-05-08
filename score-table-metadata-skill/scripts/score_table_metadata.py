@@ -27,7 +27,13 @@ import json
 import sys
 from typing import Any, TYPE_CHECKING
 
-from _rubric import RUBRIC_VERSION, score_table
+from _rubric import (
+    DEFAULT_CONFIG,
+    RUBRIC_VERSION,
+    load_rubric_config,
+    rubric_config_metadata,
+    score_table,
+)
 from _scorecard_render import make_html, make_markdown
 from _serialize import serialize
 from _validation import csv_arg, split_dataset_id, split_table_id
@@ -49,6 +55,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-html", default=None, help="Optional self-contained HTML scorecard path")
     parser.add_argument("--theme", choices=("auto", "light", "dark"), default="auto", help="Dashboard theme")
     parser.add_argument("--expect-min-score", type=int, default=None, help="Fail (exit 3) if any table scores below N")
+    parser.add_argument(
+        "--rubric-config",
+        default=None,
+        help="Path to a JSON rubric config file (overrides weights, keywords, regexes, thresholds, grade cutoffs). "
+             "Omitted sections fall back to the built-in defaults.",
+    )
     return parser.parse_args()
 
 
@@ -124,6 +136,15 @@ def main() -> int:
         return 2
 
     try:
+        rubric_config = load_rubric_config(args.rubric_config) if args.rubric_config else DEFAULT_CONFIG
+    except (OSError, ValueError) as exc:
+        print(f"Rubric config error: {exc}", file=sys.stderr)
+        return 2
+    rubric_meta = rubric_config_metadata(
+        rubric_config, args.rubric_config if args.rubric_config else None,
+    )
+
+    try:
         from google.cloud import bigquery
         from google.api_core.exceptions import GoogleAPIError
     except ImportError as exc:
@@ -155,10 +176,11 @@ def main() -> int:
             warnings.append(f"Could not fetch {table_id}: {exc}")
             continue
         normalized = _normalize_table(tbl)
-        scored_tables.append(score_table(normalized))
+        scored_tables.append(score_table(normalized, config=rubric_config))
 
     report = {
         "rubric_version": RUBRIC_VERSION,
+        "rubric_config": rubric_meta,
         "scored_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "scope": scope,
         "tables": scored_tables,

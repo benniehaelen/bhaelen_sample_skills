@@ -71,9 +71,29 @@ Each criterion scores 0/1/2 (fail / partial / pass).
 | `sensitivity_flagged` | Names like `ssn`, `email`, `dob`, `phone`, `mrn`, `patient_id`, `address`, `first_name`, etc. | Description mentions sensitivity OR column has a policy tag. |
 | `caveats_present` | Bonus | +2 if description mentions a known caveat phrase (`deprecated`, `legacy`, `not enforced`, `by design`, `be aware`, `note:`, `caution:`, `may be null`, `duplicates exist`, `overloaded`, etc.). |
 
-**Combined score**: `0.4 * (table_pts / 16) + 0.6 * column_mean_normalized`, scaled to 0-100. Letter grade: 90+ A, 80-89 B, 70-79 C, 60-69 D, <60 F.
+**Combined score**: `weights.table * (table_pts / 16) + weights.column * column_mean_normalized`, scaled to 0-100. Default weights are `0.4` / `0.6`; default grades are 90+ A, 80-89 B, 70-79 C, 60-69 D, <60 F. Both are configurable — see "Custom rubric" below.
 
 The bundled Python rubric is a deterministic heuristic (regex + keyword matching). For higher-quality grading, the same skill can be invoked through Claude Code with the BigQuery MCP connector — the agent reads each description and grades semantically. Both paths produce the same JSON shape; see [`SKILL.md`](SKILL.md) for the connector-driven flow.
+
+## Custom rubric
+
+Pass `--rubric-config <path>` to override weights, keyword lists, regex triggers, length thresholds, or grade cutoffs. Sections you omit fall back to the built-in defaults. The full schema is documented in [`SKILL.md`](SKILL.md#configuring-the-rubric); two starter files ship in [`examples/`](examples/):
+
+- [`examples/rubric_default.json`](examples/rubric_default.json) — the built-in rubric, externalized. Loading it produces identical scores to the no-flag default; copy and tweak.
+- [`examples/rubric_finance.json`](examples/rubric_finance.json) — a finance-domain example showing customized weights, stricter thresholds, and finance-specific keywords (LEI, CUSIP, OFAC, KYC/AML).
+
+```bash
+python scripts/score_table_metadata.py \
+  --dataset my-project.analytics \
+  --rubric-config examples/rubric_finance.json \
+  --output-json scorecard.json --output-md scorecard.md
+```
+
+The rubric source, name, version, and SHA-256 are stamped into the JSON output and surfaced in the scorecard subtitle so reviewers can tell which rubric was applied.
+
+## Suggested fixes
+
+Each issue in the scorecard now ships with a suggested fix the steward can paste into the description with minimal editing. The bundled heuristic produces schema-aware templates — a missing grain statement on a table with an `encounter_id` column suggests `'Grain: one row per `encounter_id`.'`; a missing units statement on `event_timestamp` suggests `'in UTC, ISO 8601.'`. Path A (the agent-driven flow described in [`SKILL.md`](SKILL.md)) produces richer, table-specific suggestions because it reads the existing description and full schema before grading.
 
 ## HTML scorecard
 

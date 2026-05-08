@@ -313,6 +313,59 @@ class TestHtml:
         })
         assert 'id="t-a-b-c-d-e"' in h
 
+    def test_dict_issues_render_with_suggestion(self, render_module):
+        """Dict-shaped issues render their message and a 'Suggested:' line."""
+        h = render_module.make_html({
+            "rubric_version": "1.0", "scope": {"tables": ["p.d.t"]},
+            "tables": [{
+                "table_id": "p.d.t", "score": 40, "grade": "F",
+                "table_metadata": {"description": None, "labels": {}, "points": 0, "max": 16, "criteria": []},
+                "column_metadata": {"mean_normalized": 0.0, "column_count": 0, "columns": []},
+                "issues": [
+                    {"criterion": "grain_statement",
+                     "message": "No grain statement.",
+                     "suggestion": "Add: 'Grain: one row per `id`.'"},
+                ],
+            }],
+        })
+        assert "No grain statement." in h
+        assert 'class="issue-suggestion"' in h
+        assert "Add: &#x27;Grain: one row per `id`.&#x27;" in h
+
+    def test_string_issues_still_render(self, render_module):
+        """Backward compat: string-shaped issues continue to render (no suggestion line)."""
+        h = render_module.make_html({
+            "rubric_version": "1.0", "scope": {"tables": ["p.d.t"]},
+            "tables": [{
+                "table_id": "p.d.t", "score": 40, "grade": "F",
+                "table_metadata": {"description": None, "labels": {}, "points": 0, "max": 16, "criteria": []},
+                "column_metadata": {"mean_normalized": 0.0, "column_count": 0, "columns": []},
+                "issues": ["Plain old string issue."],
+            }],
+        })
+        assert "Plain old string issue." in h
+        assert 'class="issue-suggestion"' not in h
+
+    def test_summary_top_issue_uses_message_only(self, render_module):
+        """Summary table shows the message, not the (longer) suggestion."""
+        h = render_module.make_html({
+            "rubric_version": "1.0", "scope": {"tables": ["p.d.t"]},
+            "tables": [{
+                "table_id": "p.d.t", "score": 40, "grade": "F",
+                "table_metadata": {"description": None, "labels": {}, "points": 0, "max": 16, "criteria": []},
+                "column_metadata": {"mean_normalized": 0.0, "column_count": 0, "columns": []},
+                "issues": [
+                    {"criterion": "grain_statement",
+                     "message": "TOP-MESSAGE",
+                     "suggestion": "TOP-SUGGESTION"},
+                ],
+            }],
+        })
+        # Summary cell contains the message but not the suggestion.
+        assert "TOP-MESSAGE" in h
+        # Suggestion still appears in the per-table card, but only once (not in summary).
+        assert h.count("TOP-SUGGESTION") == 1
+
     def test_missing_description_marked_empty(self, render_module):
         h = render_module.make_html({
             "rubric_version": "1.0", "scope": {"tables": ["p.d.t"]},

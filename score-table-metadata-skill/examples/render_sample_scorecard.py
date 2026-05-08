@@ -20,7 +20,7 @@ _HERE = Path(__file__).resolve().parent
 _SCRIPTS = _HERE.parent / "scripts"
 sys.path.insert(0, str(_SCRIPTS))
 
-from _rubric import RUBRIC_VERSION, score_table  # noqa: E402
+from _rubric import DEFAULT_CONFIG, RUBRIC_VERSION, rubric_config_metadata, score_table  # noqa: E402
 from _scorecard_render import make_html  # noqa: E402
 
 
@@ -130,6 +130,7 @@ def build_sample_report() -> dict:
     }]
     return {
         "rubric_version": RUBRIC_VERSION,
+        "rubric_config": rubric_config_metadata(DEFAULT_CONFIG, None),
         "scored_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat(),
         "scope": {"dataset": "my-project.analytics"},
         "tables": tables,
