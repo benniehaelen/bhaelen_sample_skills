@@ -283,6 +283,49 @@ def _issue_parts(issue: Any) -> tuple[str, str]:
     return str(issue), ""
 
 
+def _order_columns_for_display(columns: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Order columns for display: roots worst-first, descendants in schema order.
+
+    For tables with nested ``RECORD`` columns, sorting strictly by ratio
+    scatters siblings (e.g. ``address.street`` and ``address.city`` could end
+    up at opposite ends of the list). This walker keeps each root column's
+    descendants contiguous under it: roots are sorted worst-first by ratio,
+    and within each subtree descendants stay in their original (schema)
+    order. Tables with no nested fields render exactly as before — the
+    flat list ends up sorted worst-first.
+    """
+    by_name = {c.get("name"): c for c in columns if c.get("name")}
+    children_of: dict[str, list[dict[str, Any]]] = {n: [] for n in by_name}
+    roots: list[dict[str, Any]] = []
+    for col in columns:
+        parent = col.get("parent")
+        if parent and parent in by_name:
+            children_of[parent].append(col)
+        else:
+            roots.append(col)
+
+    def ratio(c: dict[str, Any]) -> float:
+        return (c.get("points") or 0) / (c.get("max") or 1)
+    roots.sort(key=ratio)
+
+    out: list[dict[str, Any]] = []
+
+    def emit(col: dict[str, Any]) -> None:
+        out.append(col)
+        for child in children_of.get(col.get("name"), ()):
+            emit(child)
+
+    for root in roots:
+        emit(root)
+    return out
+
+
+def _column_depth(col: dict[str, Any]) -> int:
+    """Nesting depth of a column for visual indentation. 0 for top-level."""
+    name = col.get("name") or ""
+    return name.count(".")
+
+
 def _top_issue(table: dict[str, Any]) -> str:
     """First (highest-priority) issue's message, or empty.
 
@@ -408,10 +451,7 @@ def make_markdown(report: dict[str, Any]) -> str:
         if cm.get("columns"):
             lines.append("| Column | Type | Score | Description | Failing criteria |")
             lines.append("| --- | --- | --- | --- | --- |")
-            cols_sorted = sorted(
-                cm["columns"],
-                key=lambda c: ((c.get("points") or 0) / (c.get("max") or 1)),
-            )
+            cols_sorted = _order_columns_for_display(cm["columns"])
             for col in cols_sorted:
                 fails = [c["name"] for c in (col.get("criteria") or [])
                          if _criterion_status(c) in ("fail", "partial")]
@@ -500,6 +540,10 @@ def _column_card(col: dict[str, Any]) -> str:
     Closed by default; the summary line shows the column name, type,
     score, and a count of failing/partial criteria. Expanding reveals
     the full description and the per-criterion pills.
+
+    Nested columns are visually indented based on their depth (number of
+    dots in the dotted name) so a steward scanning the scorecard sees the
+    parent-child relationship at a glance.
     """
     pts = col.get("points", 0)
     mx = col.get("max", 0)
@@ -517,7 +561,9 @@ def _column_card(col: dict[str, Any]) -> str:
         f'</summary>'
     )
     desc_block = _column_description_block(col.get("description"))
-    return f'<details class="col-detail">{summary}{desc_block}{inner}</details>'
+    depth = _column_depth(col)
+    style_attr = f' style="margin-left: {depth * 18}px"' if depth > 0 else ""
+    return f'<details class="col-detail"{style_attr}>{summary}{desc_block}{inner}</details>'
 
 
 def _table_scorecard(table: dict[str, Any]) -> str:
@@ -553,11 +599,8 @@ def _table_scorecard(table: dict[str, Any]) -> str:
 
     columns_html = ""
     if cm.get("columns"):
-        # Show worst columns first (lowest ratio)
-        cols_sorted = sorted(
-            cm["columns"],
-            key=lambda c: ((c.get("points") or 0) / (c.get("max") or 1)),
-        )
+        # Roots worst-first; descendants kept under their root in schema order.
+        cols_sorted = _order_columns_for_display(cm["columns"])
         columns_html = "".join(_column_card(c) for c in cols_sorted)
 
     desc_panel = _description_panel(tm.get("description"), tm.get("labels"), default_open=True)

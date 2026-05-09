@@ -184,15 +184,18 @@ DEFAULT_CONFIG: RubricConfig = RubricConfig(
         "evidence_max_chars": 90,
     },
     column_triggers={
-        "coded":     re.compile(r"_(code|status|flag|type|cd|ind|category)$", re.IGNORECASE),
+        # Boundary classes accept both `_` and `.` so dotted names from nested
+        # schemas (e.g. `user.email`, `event.timestamp`, `address.zip`) trigger
+        # the same conditional criteria as their flat counterparts.
+        "coded":     re.compile(r"[_.](code|status|flag|type|cd|ind|category)$", re.IGNORECASE),
         "measure":   re.compile(
-            r"(^|_)(amount|count|rate|pct|percent|temp|dose|qty|quantity|weight|height|"
-            r"length|date|datetime|timestamp|duration|elapsed|seconds|minutes|hours|days|price|cost)(_|$)",
+            r"(^|[_.])(amount|count|rate|pct|percent|temp|dose|qty|quantity|weight|height|"
+            r"length|date|datetime|timestamp|duration|elapsed|seconds|minutes|hours|days|price|cost)([_.]|$)",
             re.IGNORECASE,
         ),
         "sensitive": re.compile(
-            r"(^|_)(ssn|email|dob|date_of_birth|phone|mrn|patient_id|address|zip|postal|"
-            r"first_name|last_name|full_name|account|credit_card|card_number|tax_id)(_|$)",
+            r"(^|[_.])(ssn|email|dob|date_of_birth|phone|mrn|patient_id|address|zip|postal|"
+            r"first_name|last_name|full_name|account|credit_card|card_number|tax_id)([_.]|$)",
             re.IGNORECASE,
         ),
     },
@@ -801,6 +804,7 @@ def score_column_metadata(col: dict[str, Any], *, config: RubricConfig | None = 
         "type": col.get("type"),
         "mode": col.get("mode"),
         "description": col.get("description"),
+        "parent": col.get("parent"),
         "points": sum(c["points"] for c in criteria),
         "max": sum(c["max"] for c in criteria),
         "criteria": criteria,

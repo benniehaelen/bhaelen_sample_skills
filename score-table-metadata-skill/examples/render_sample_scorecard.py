@@ -54,9 +54,24 @@ def _good_table() -> dict:
              "description": "Encounter start time in UTC, ISO 8601 format. Source-native from ADT."},
             {"name": "latest_record_ind", "type": "INT64", "mode": "NULLABLE",
              "description": "Y/N flag indicating the most recent version of the encounter record. Derived from the type-2 SCD load process."},
-            {"name": "patient_email", "type": "STRING", "mode": "NULLABLE",
-             "description": "Patient email from the source registration system — PII, do not export to non-curated zones.",
+            # Nested STRUCT showing dotted-name leaf scoring — patient.email,
+            # patient.dob, etc. each trigger the sensitivity criterion via the
+            # dot-aware boundary in the trigger regex.
+            {"name": "patient", "type": "RECORD", "mode": "NULLABLE",
+             "description": "Patient demographics block; populated from the EMR registry at encounter creation. PHI."},
+            {"name": "patient.first_name", "type": "STRING", "mode": "NULLABLE",
+             "description": "Patient first name from the EMR registry. PHI; do not export to non-curated zones.",
+             "parent": "patient"},
+            {"name": "patient.last_name", "type": "STRING", "mode": "NULLABLE",
+             "description": "Patient last name from the EMR registry. PHI; do not export to non-curated zones.",
+             "parent": "patient"},
+            {"name": "patient.email", "type": "STRING", "mode": "NULLABLE",
+             "description": "Patient primary contact email from the EMR registry. PHI; do not export.",
+             "parent": "patient",
              "policy_tags": ["projects/x/locations/us/taxonomies/1/policyTags/2"]},
+            {"name": "patient.dob", "type": "DATE", "mode": "NULLABLE",
+             "description": "Patient date of birth in ISO 8601 from the EMR registry. PHI.",
+             "parent": "patient"},
         ],
     }
 

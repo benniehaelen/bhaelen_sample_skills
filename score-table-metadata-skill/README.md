@@ -197,6 +197,10 @@ python scripts/score_table_metadata.py \
 
 The rubric source, name, version, and SHA-256 are stamped into the JSON output and surfaced in the scorecard subtitle so reviewers can tell which rubric was applied.
 
+## Nested fields (`STRUCT` and `ARRAY<STRUCT>`)
+
+BigQuery schemas can be hierarchical. The skill walks the schema tree, scoring every leaf and parent struct as its own column with **dotted names** (`address.street`, `events.event_id`) and a `parent` field linking each entry to its immediate parent. Trigger regexes recognize `.` as a name boundary, so `user.email` correctly fires the sensitivity criterion, `event.timestamp` fires units/format, and `address.zip_code` fires the coded criterion. The HTML scorecard indents nested entries under their parent so the structure is visible at a glance; the Markdown summary uses the dotted name itself to communicate hierarchy. See [`examples/sample_scorecard_light.html`](examples/sample_scorecard_light.html) for what nested rendering looks like.
+
 ## Suggested fixes
 
 Each issue in the scorecard now ships with a suggested fix the steward can paste into the description with minimal editing. The bundled heuristic produces schema-aware templates — a missing grain statement on a table with an `encounter_id` column suggests `'Grain: one row per `encounter_id`.'`; a missing units statement on `event_timestamp` suggests `'in UTC, ISO 8601.'`. Path A (the agent-driven flow described in [`SKILL.md`](SKILL.md)) produces richer, table-specific suggestions because it reads the existing description and full schema before grading.

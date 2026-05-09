@@ -71,16 +71,35 @@ def _normalize_table(table: "bigquery.Table") -> dict[str, Any]:
     after project); we rewrite it to the dotted form everywhere else uses.
     Policy tags are flattened to the underlying name list — that's what
     ``_check_sensitivity_flagged`` looks at.
+
+    Nested fields (``RECORD`` / ``STRUCT`` columns and ``ARRAY<STRUCT>``,
+    which BigQuery represents as ``mode=REPEATED, field_type=RECORD``) are
+    walked recursively. Each leaf and each parent struct gets its own entry
+    in ``columns`` with a dotted name (``address.street``, ``events.event_id``)
+    and a ``parent`` field linking to the immediate parent's dotted name
+    (``None`` for top-level columns). Each entry is graded with the same
+    rubric — leaf names like ``user.email`` correctly trigger the sensitivity
+    criterion because ``_SENSITIVE_RE``'s boundaries accept ``.`` as well as ``_``.
     """
-    columns = []
-    for field in table.schema:
+    columns: list[dict[str, Any]] = []
+
+    def walk(field: Any, parent: str | None = None) -> None:
+        full_name = f"{parent}.{field.name}" if parent else field.name
+        policy_tags = (field.policy_tags.names if getattr(field, "policy_tags", None) else None)
         columns.append({
-            "name": field.name,
+            "name": full_name,
             "type": field.field_type,
             "mode": field.mode,
             "description": field.description,
-            "policy_tags": list((field.policy_tags.names if getattr(field, "policy_tags", None) else []) or []),
+            "policy_tags": list(policy_tags or []),
+            "parent": parent,
         })
+        for sub in getattr(field, "fields", None) or ():
+            walk(sub, parent=full_name)
+
+    for top_field in table.schema:
+        walk(top_field)
+
     return {
         "table_id": table.full_table_id.replace(":", "."),
         "description": table.description,

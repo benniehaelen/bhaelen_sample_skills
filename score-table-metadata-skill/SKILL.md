@@ -143,6 +143,8 @@ mcp__bigquery__get_table_info(project="<project>", dataset="<dataset>", table="<
 ```
 This returns the description, labels, and schema (with per-field descriptions and any policy tags). No data scan, so no dry-run / scan-cap is needed for this skill.
 
+**Nested fields (`RECORD` / `STRUCT` and `ARRAY<STRUCT>`).** BigQuery schemas can be hierarchical: a `RECORD`-type field has a `fields` array containing its sub-fields, and `ARRAY<STRUCT<...>>` is represented as a `RECORD` field with `mode: REPEATED` plus `fields`. **Walk the schema tree recursively** and emit one column entry per leaf *and* per parent struct, using **dotted names** (`address.street`, `address.city`, `events.event_id`) and a `parent` field linking each entry to its immediate parent's dotted name (`null` for top-level columns). Score each entry — root or nested — with the full column rubric. The trigger regexes accept `.` as a boundary character, so `user.email` correctly fires the sensitivity criterion, `event.timestamp` fires units/format, and `address.zip_code` fires the coded criterion.
+
 **Step 3 — grade each criterion semantically.**
 
 For every criterion in the rubric, decide pass / partial / fail by reading the description. You are the grader. The keyword matchers in the heuristic Python implementation are guides, not rules — apply judgment:
@@ -201,6 +203,7 @@ The shape must match what `scripts/render_scorecard.py` expects:
             "type": "STRING",
             "mode": "NULLABLE",
             "description": "Coded discharge status from the source ADT feed; values map to home, transfer, expired, hospice. Nullable for in-progress encounters.",
+            "parent": null,
             "points": 8,
             "max": 8,
             "criteria": [
@@ -208,6 +211,35 @@ The shape must match what `scripts/render_scorecard.py` expects:
               {"name": "not_type_echo", "points": 2, "max": 2, "passed": true, "evidence": "..."},
               {"name": "derived_or_source_status", "points": 2, "max": 2, "passed": true, "evidence": "from the source ADT feed"},
               {"name": "coded_field_explained", "points": 2, "max": 2, "passed": true, "evidence": "values map to home/transfer/expired/hospice"}
+            ]
+          },
+          {
+            "name": "patient",
+            "type": "RECORD",
+            "mode": "NULLABLE",
+            "description": "Patient demographics block; populated from the EMR registry at encounter creation.",
+            "parent": null,
+            "points": 6,
+            "max": 6,
+            "criteria": [
+              {"name": "has_description", "points": 2, "max": 2, "passed": true, "evidence": "Patient demographics block..."},
+              {"name": "not_type_echo", "points": 2, "max": 2, "passed": true, "evidence": "..."},
+              {"name": "derived_or_source_status", "points": 2, "max": 2, "passed": true, "evidence": "from the EMR registry"}
+            ]
+          },
+          {
+            "name": "patient.email",
+            "type": "STRING",
+            "mode": "NULLABLE",
+            "description": "Patient's primary contact email. Contains PII; do not export to non-clinical systems.",
+            "parent": "patient",
+            "points": 8,
+            "max": 8,
+            "criteria": [
+              {"name": "has_description", "points": 2, "max": 2, "passed": true, "evidence": "Patient's primary contact email..."},
+              {"name": "not_type_echo", "points": 2, "max": 2, "passed": true, "evidence": "..."},
+              {"name": "derived_or_source_status", "points": 2, "max": 2, "passed": true, "evidence": "from the EMR registry (inherited from parent)"},
+              {"name": "sensitivity_flagged", "points": 2, "max": 2, "passed": true, "evidence": "Contains PII; do not export"}
             ]
           }
         ]

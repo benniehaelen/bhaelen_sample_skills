@@ -476,6 +476,40 @@ class TestSuggestedFixes:
 # Pattern detectors
 # ---------------------------------------------------------------------------
 
+class TestNamePatternDetectorsDottedNames:
+    """Trigger regexes accept `.` as a boundary so nested-field dotted names fire."""
+
+    @pytest.mark.parametrize("name,expected", [
+        ("user.email", True),
+        ("patient.dob", True),
+        ("address.zip", True),
+        ("contact.phone", True),
+        ("patient.first_name", True),
+        ("user.id", False),  # unrelated dotted name shouldn't match sensitive pattern
+    ])
+    def test_sensitive_regex_matches_dotted(self, rubric_module, name, expected):
+        assert rubric_module._is_sensitive_name(name) is expected
+
+    @pytest.mark.parametrize("name,expected", [
+        ("event.timestamp", True),
+        ("order.amount", True),
+        ("response.rate", True),
+        ("event.duration", True),
+        ("user.id", False),
+    ])
+    def test_measure_regex_matches_dotted(self, rubric_module, name, expected):
+        assert rubric_module._is_measure_name(name) is expected
+
+    @pytest.mark.parametrize("name,expected", [
+        ("address.zip_code", True),
+        ("encounter.status", True),
+        ("encounter.code", True),
+        ("user.id", False),
+    ])
+    def test_coded_regex_matches_dotted(self, rubric_module, name, expected):
+        assert rubric_module._is_coded_name(name) is expected
+
+
 class TestNamePatternDetectors:
     """Verify which column names trip the conditional column criteria."""
 

@@ -13,12 +13,13 @@ import pytest
 
 
 class _FakeSchemaField:
-    def __init__(self, name, field_type, mode="NULLABLE", description=None, policy_tags=None):
+    def __init__(self, name, field_type, mode="NULLABLE", description=None, policy_tags=None, fields=None):
         self.name = name
         self.field_type = field_type
         self.mode = mode
         self.description = description
         self.policy_tags = policy_tags
+        self.fields = fields or ()
 
 
 class _PolicyTagList:
@@ -110,6 +111,111 @@ class TestNormalizeTable:
         tbl = _FakeTable("p:d.t", description="x", labels={}, schema=[sf])
         norm = score_script_module._normalize_table(tbl)
         assert norm["columns"][0]["policy_tags"] == ["pt1"]
+
+
+class TestNormalizeNestedFields:
+    """``_normalize_table`` walks RECORD / ARRAY<STRUCT> fields recursively."""
+
+    def _struct_schema(self):
+        return [
+            _FakeSchemaField("encounter_id", "STRING", description="Stable id."),
+            _FakeSchemaField(
+                "patient", "RECORD", description="Patient demographics block.",
+                fields=[
+                    _FakeSchemaField("first_name", "STRING", description="First name."),
+                    _FakeSchemaField("last_name", "STRING", description="Last name."),
+                    _FakeSchemaField("email", "STRING", description="Primary email."),
+                ],
+            ),
+        ]
+
+    def test_struct_emits_parent_and_leaves(self, score_script_module):
+        tbl = _FakeTable("p:d.t", description="x", labels={}, schema=self._struct_schema())
+        norm = score_script_module._normalize_table(tbl)
+        names = [c["name"] for c in norm["columns"]]
+        assert names == [
+            "encounter_id", "patient", "patient.first_name", "patient.last_name", "patient.email"
+        ]
+
+    def test_parent_field_links_leaves_to_struct(self, score_script_module):
+        tbl = _FakeTable("p:d.t", description="x", labels={}, schema=self._struct_schema())
+        norm = score_script_module._normalize_table(tbl)
+        by_name = {c["name"]: c for c in norm["columns"]}
+        assert by_name["encounter_id"]["parent"] is None
+        assert by_name["patient"]["parent"] is None
+        assert by_name["patient.first_name"]["parent"] == "patient"
+        assert by_name["patient.email"]["parent"] == "patient"
+
+    def test_array_of_struct_walks_repeated_record(self, score_script_module):
+        """ARRAY<STRUCT> is REPEATED RECORD with sub-fields — same recursion."""
+        schema = [
+            _FakeSchemaField(
+                "events", "RECORD", mode="REPEATED",
+                description="Per-encounter event stream.",
+                fields=[
+                    _FakeSchemaField("event_id", "STRING", description="Event id."),
+                    _FakeSchemaField("event_timestamp", "TIMESTAMP",
+                                     description="When the event occurred (UTC)."),
+                ],
+            ),
+        ]
+        tbl = _FakeTable("p:d.t", description="x", labels={}, schema=schema)
+        norm = score_script_module._normalize_table(tbl)
+        names = [c["name"] for c in norm["columns"]]
+        assert names == ["events", "events.event_id", "events.event_timestamp"]
+        events_row = next(c for c in norm["columns"] if c["name"] == "events")
+        assert events_row["mode"] == "REPEATED"
+        assert events_row["type"] == "RECORD"
+
+    def test_deeply_nested_keeps_dotted_path(self, score_script_module):
+        schema = [
+            _FakeSchemaField(
+                "a", "RECORD", description="a",
+                fields=[
+                    _FakeSchemaField(
+                        "b", "RECORD", description="b",
+                        fields=[
+                            _FakeSchemaField("c", "STRING", description="c"),
+                        ],
+                    ),
+                ],
+            ),
+        ]
+        tbl = _FakeTable("p:d.t", description="x", labels={}, schema=schema)
+        norm = score_script_module._normalize_table(tbl)
+        names = [c["name"] for c in norm["columns"]]
+        assert names == ["a", "a.b", "a.b.c"]
+        leaf = next(c for c in norm["columns"] if c["name"] == "a.b.c")
+        assert leaf["parent"] == "a.b"
+
+    def test_full_run_with_nested_struct(self, fake_client, score_script_module, tmp_path, monkeypatch):
+        """End-to-end: nested fields appear in the JSON output and get scored."""
+        fake_client.add_table(
+            "p.d.t",
+            description=(
+                "Encounter records. Grain: one row per encounter. Composite key on encounter_id. "
+                "Join to patient. Owner: data-team. Contains PHI. SCD type-2. "
+                "Loaded from ADT source system."
+            ),
+            schema=self._struct_schema(),
+        )
+        out_json = tmp_path / "s.json"
+        monkeypatch.setattr(sys, "argv", [
+            "score_table_metadata.py", "--tables", "p.d.t",
+            "--output-json", str(out_json),
+            "--output-md", str(tmp_path / "s.md"),
+        ])
+        rc = score_script_module.main()
+        assert rc == 0
+        report = json.loads(out_json.read_text(encoding="utf-8"))
+        cols = report["tables"][0]["column_metadata"]["columns"]
+        names = [c["name"] for c in cols]
+        assert "patient.email" in names
+        # The nested email field should fire the sensitivity criterion via the dotted-name boundary.
+        email_row = next(c for c in cols if c["name"] == "patient.email")
+        crit_names = [k["name"] for k in email_row["criteria"]]
+        assert "sensitivity_flagged" in crit_names
+        assert email_row["parent"] == "patient"
 
 
 class TestCsvArgTables:

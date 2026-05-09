@@ -10,9 +10,9 @@
     "evidence_max_chars": 90
   },
   "column_triggers": {
-    "coded": "_(code|status|flag|type|cd|ind|category)$",
-    "measure": "(^|_)(amount|count|rate|pct|percent|temp|dose|qty|quantity|weight|height|length|date|datetime|timestamp|duration|elapsed|seconds|minutes|hours|days|price|cost)(_|$)",
-    "sensitive": "(^|_)(ssn|email|dob|date_of_birth|phone|mrn|patient_id|address|zip|postal|first_name|last_name|full_name|account|credit_card|card_number|tax_id)(_|$)"
+    "coded": "[_.](code|status|flag|type|cd|ind|category)$",
+    "measure": "(^|[_.])(amount|count|rate|pct|percent|temp|dose|qty|quantity|weight|height|length|date|datetime|timestamp|duration|elapsed|seconds|minutes|hours|days|price|cost)([_.]|$)",
+    "sensitive": "(^|[_.])(ssn|email|dob|date_of_birth|phone|mrn|patient_id|address|zip|postal|first_name|last_name|full_name|account|credit_card|card_number|tax_id)([_.]|$)"
   },
   "keywords": {
     "grain_statement": {

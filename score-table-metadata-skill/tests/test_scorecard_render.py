@@ -313,6 +313,68 @@ class TestHtml:
         })
         assert 'id="t-a-b-c-d-e"' in h
 
+    def test_nested_columns_indent_and_group(self, render_module):
+        """Nested columns get margin-left in HTML and stay grouped under their parent."""
+        h = render_module.make_html({
+            "rubric_version": "1.0", "scope": {"tables": ["p.d.t"]},
+            "tables": [{
+                "table_id": "p.d.t", "score": 70, "grade": "C",
+                "table_metadata": {"description": "x", "labels": {}, "points": 14, "max": 16, "criteria": []},
+                "column_metadata": {
+                    "mean_normalized": 0.7, "column_count": 4,
+                    "columns": [
+                        # Worst-scoring root would normally come first; this verifies that
+                        # nested children stay under their parent regardless of sort.
+                        {"name": "encounter_id", "type": "STRING", "description": "id",
+                         "parent": None, "points": 4, "max": 4, "criteria": []},
+                        {"name": "patient", "type": "RECORD", "description": "demographics",
+                         "parent": None, "points": 2, "max": 4, "criteria": []},
+                        {"name": "patient.email", "type": "STRING", "description": "email",
+                         "parent": "patient", "points": 2, "max": 6, "criteria": []},
+                        {"name": "patient.first_name", "type": "STRING", "description": "first",
+                         "parent": "patient", "points": 4, "max": 4, "criteria": []},
+                    ],
+                },
+                "issues": [],
+            }],
+        })
+        # Nested columns get margin-left applied via inline style.
+        assert 'margin-left: 18px' in h  # depth-1 (one dot)
+        # The patient leaves render after the patient root, not interleaved with encounter_id.
+        patient_idx = h.index('<code>patient</code>')
+        email_idx = h.index('<code>patient.email</code>')
+        first_name_idx = h.index('<code>patient.first_name</code>')
+        encounter_idx = h.index('<code>encounter_id</code>')
+        assert patient_idx < email_idx < first_name_idx
+        # Worst root (patient: 0.5) sorts before better root (encounter_id: 1.0).
+        assert patient_idx < encounter_idx
+        # And the encounter_id (better-scoring root) appears AFTER all of patient's leaves.
+        assert first_name_idx < encounter_idx
+
+    def test_top_level_columns_unaffected_when_no_nesting(self, render_module):
+        """Tables with no nested fields still sort worst-first (existing behavior)."""
+        h = render_module.make_html({
+            "rubric_version": "1.0", "scope": {"tables": ["p.d.t"]},
+            "tables": [{
+                "table_id": "p.d.t", "score": 70, "grade": "C",
+                "table_metadata": {"description": "x", "labels": {}, "points": 14, "max": 16, "criteria": []},
+                "column_metadata": {
+                    "mean_normalized": 0.7, "column_count": 2,
+                    "columns": [
+                        {"name": "good_col", "type": "STRING", "description": "ok",
+                         "parent": None, "points": 4, "max": 4, "criteria": []},
+                        {"name": "bad_col", "type": "STRING", "description": "bad",
+                         "parent": None, "points": 0, "max": 4, "criteria": []},
+                    ],
+                },
+                "issues": [],
+            }],
+        })
+        bad_idx = h.index('<code>bad_col</code>')
+        good_idx = h.index('<code>good_col</code>')
+        assert bad_idx < good_idx  # worst-first preserved
+        assert 'margin-left:' not in h  # no nested columns => no inline margin
+
     def test_dict_issues_render_with_suggestion(self, render_module):
         """Dict-shaped issues render their message and a 'Suggested:' line."""
         h = render_module.make_html({
