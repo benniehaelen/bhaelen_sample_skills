@@ -1,8 +1,114 @@
 # Metadata Scorecard Skill
 
-Score authored metadata quality on Google BigQuery tables against the data-steward rubric. Reads only metadata (descriptions, labels, schema field descriptions, policy tags) — never scans data. Produces a per-table 0-100 score, A-F letter grade, per-criterion evidence, and an actionable issues list.
+Score authored metadata quality on Google BigQuery tables against the data-steward rubric. Reads only metadata (descriptions, labels, schema field descriptions, policy tags) — never scans data. Produces a per-table 0-100 score, A-F letter grade, per-criterion evidence, and an actionable issues list with suggested fixes.
 
-## Install
+There are two ways to run it:
+
+- **[Using with Claude](#using-with-claude-recommended)** — ask Claude in plain English. Claude reads the rubric, fetches metadata via a BigQuery MCP server, grades each criterion semantically, and writes the scorecard files. Recommended for most users.
+- **[Run locally with Python](#run-locally-with-python-path-b)** — bundled CLI script that uses `google-cloud-bigquery` directly. Heuristic grading (regex + keyword matching). Useful when an MCP server isn't available, or for CI pipelines.
+
+Both paths produce the same JSON / Markdown / HTML output shape and share the same renderer.
+
+## Using with Claude (recommended)
+
+Claude reads `SKILL.md`, fetches BigQuery metadata via a registered MCP connector, grades each table against the rubric, and writes the scorecard files. No local Python install required — you only need the skill directory and a BigQuery MCP server registered with your Claude environment.
+
+### Install the skill
+
+#### Claude Code
+
+Drop the skill directory into one of:
+
+```bash
+# User-level (available across all projects)
+cp -r score-table-metadata-skill ~/.claude/skills/score-table-metadata
+
+# Or project-level (only this project)
+mkdir -p .claude/skills && cp -r score-table-metadata-skill .claude/skills/score-table-metadata
+```
+
+The **directory name becomes the slash-command name** — keep it as `score-table-metadata` so the skill is invoked as `/score-table-metadata` and matches the `name:` in `SKILL.md`'s frontmatter. Claude Code hot-reloads skills inside an active session, so no restart is needed (unless `~/.claude/skills/` didn't exist before, in which case start a new session once so the watcher picks up the directory).
+
+#### Claude.ai
+
+Open **Workspace settings → Custom skills** (or **Team settings** for org-wide installation), then upload the skill directory as a `.zip`. The skill becomes available across new conversations in that workspace.
+
+### Set up the BigQuery MCP server
+
+Claude needs metadata-read access to BigQuery. The skill expects a registered MCP server that exposes `mcp__bigquery__get_table_info`, `mcp__bigquery__list_table_ids`, and `mcp__bigquery__execute_sql` (the convention used by the [Google GenAI Toolbox](https://github.com/googleapis/genai-toolbox) when configured with `--prebuilt bigquery`).
+
+**Claude Code** — register the MCP server once, user-wide:
+
+```bash
+# Install the toolbox per its own README, then register with Claude Code:
+claude mcp add bigquery -- toolbox serve --prebuilt bigquery
+# Authenticate the toolbox via Application Default Credentials:
+gcloud auth application-default login
+```
+
+Verify with `claude mcp list` — `bigquery` should appear. Test by asking Claude *"List the datasets in `<your-project>`."*
+
+**Claude.ai** — Workspace MCP settings → add the BigQuery MCP using your workspace's auth model (typically a service-account JSON). Same verification: ask Claude to list datasets first.
+
+### Example prompts
+
+Once both the skill and MCP server are installed, ask Claude in plain English:
+
+- *"Score the metadata for every table in `my-project.analytics`."*
+- *"Audit these BigQuery tables for metadata quality: `acme.sales.orders`, `acme.sales.line_items`, `acme.sales.customers`."*
+- *"Run a metadata scorecard against the `acme.warehouse` dataset and fail anything below 70."*
+- *"Score the tables in `acme.regulated` using my custom rubric at `./finance-rubric.json`."*
+- *"Show me the worst-scoring tables in `acme.warehouse` and the top three issues for each, with concrete suggested fixes I can paste into the descriptions."*
+
+You can also explicitly invoke the skill with `/score-table-metadata` in Claude Code if Claude doesn't pick it up automatically.
+
+### What you get back
+
+Three files in your working directory (file names configurable in the prompt):
+
+- **`metadata_scorecard.json`** — machine-readable scorecard. Per-table score, grade, per-criterion evidence, and an `issues` list where each entry has a `criterion`, `message`, `column` (when applicable), and a concrete `suggestion` you can paste into the description.
+- **`metadata_scorecard.md`** — Markdown summary, one section per table, sorted worst-first.
+- **`metadata_scorecard.html`** — self-contained dashboard (no JavaScript, no external assets) you can open in any browser, email around, or commit alongside docs.
+
+A pre-rendered example lives in [`examples/sample_scorecard_light.html`](examples/sample_scorecard_light.html) (also `_dark` and `_auto` variants). Open it to see what a finished scorecard looks like before running against your own data.
+
+### What runs where
+
+In Path A, **Claude does the rubric grading itself** by reading `SKILL.md`. The bundled Python isn't a rubric engine that Claude shells out to — Claude reads each description, decides pass / partial / fail per criterion, and assembles the JSON report dict in its own context.
+
+The only Python that runs in Path A is the **renderer**: `scripts/render_scorecard.py` (and its imports, `_scorecard_render.py` + `_serialize.py`). It's a pure JSON-in / Markdown+HTML-out transformer with no BigQuery dependency and no third-party packages. After writing the JSON, Claude calls it once:
+
+```bash
+python scripts/render_scorecard.py \
+  --input scorecard.json --output-md scorecard.md --output-html scorecard.html --theme auto
+```
+
+| File | Path A (Claude) | Path B (CLI) |
+| --- | --- | --- |
+| `scripts/render_scorecard.py` + `_scorecard_render.py` + `_serialize.py` | runs (renderer) | runs |
+| `scripts/score_table_metadata.py` (CLI entry) | not used | runs |
+| `scripts/_rubric.py` (heuristic grader) | not used — Claude grades from `SKILL.md` | runs |
+| `scripts/_validation.py` | not used | runs |
+
+**Practical implications:**
+
+- Path A still needs Python somewhere — the renderer has to run. In **Claude Code**, it runs on your local machine via the Bash tool (stdlib only, so any Python 3 works — no `pip install` needed). In **Claude.ai**, it runs in the Python analysis sandbox.
+- If you only need the JSON output, no Python is required at all — Claude writes that file directly.
+- The renderer is the contract, not the rubric. Both paths feed the *same* renderer with the same JSON shape (documented in `SKILL.md`), so the Markdown and HTML outputs are identical regardless of who graded.
+
+### Troubleshooting
+
+- **Claude doesn't seem to know about the skill.** Confirm `SKILL.md` sits at the *root* of the skill directory (e.g., `~/.claude/skills/score-table-metadata/SKILL.md`) — not nested under `scripts/` or anywhere else. In Claude Code, run `/help` and check the available skills list. In Claude.ai, look at the Custom skills panel in workspace settings.
+- **Claude says it doesn't have BigQuery access.** The MCP server isn't reachable. Run `claude mcp list` (Claude Code) or check the workspace MCP settings (Claude.ai). Test by asking Claude *"List the datasets in `<project>`"* — if that fails, fix the MCP before re-running the skill.
+- **Claude can't find my custom rubric file.** Use an absolute path, or a path relative to the directory Claude is operating in (Claude will tell you which directory it's using if you ask).
+- **The output JSON is missing fields.** Re-prompt with: *"Re-grade and make sure each criterion has `name`, `points`, `max`, `passed`, and `evidence`, and that every issue has `criterion`, `message`, and `suggestion` — match the JSON shape in `SKILL.md`."*
+- **I have local BigQuery access but no MCP server.** Use the Python path below.
+
+## Run locally with Python (Path B)
+
+If a BigQuery MCP server isn't available — for example, in CI pipelines or on a workstation without one configured — the skill ships a deterministic Python implementation that uses `google-cloud-bigquery` directly. The grading is heuristic (regex + keyword matching) rather than semantic, so suggested fixes are schema-aware templates rather than table-specific drafts. The JSON shape, renderer, and CLI flags are identical.
+
+### Install
 
 ```bash
 python -m venv .venv
@@ -11,7 +117,7 @@ pip install -r requirements.txt
 gcloud auth application-default login
 ```
 
-## Score every table in a dataset
+### Score every table in a dataset
 
 ```bash
 python scripts/score_table_metadata.py \
@@ -21,7 +127,7 @@ python scripts/score_table_metadata.py \
   --output-html scorecard.html
 ```
 
-## Score an explicit list of tables
+### Score an explicit list of tables
 
 ```bash
 python scripts/score_table_metadata.py \
@@ -29,7 +135,7 @@ python scripts/score_table_metadata.py \
   --output-json scorecard.json --output-md scorecard.md
 ```
 
-## CI-style health gate
+### CI-style health gate
 
 Pass `--expect-min-score N` and the script exits with code `3` if any table scores below `N`. The scorecard is still written so you can inspect what failed.
 
