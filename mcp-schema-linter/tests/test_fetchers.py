@@ -251,3 +251,64 @@ def test_load_from_url_raises_when_requests_missing(monkeypatch):
     monkeypatch.setitem(sys.modules, "requests", None)
     with pytest.raises(RuntimeError, match="requests"):
         _fetchers.load_from_url("https://billing.example.com/mcp")
+
+
+class _QueueStubRequests:
+    """Returns queued responses per method (last entry repeats); records calls."""
+
+    def __init__(self, queues: dict[str, list[_StubResponse]]):
+        self._queues = {m: list(v) for m, v in queues.items()}
+        self.calls: list[dict] = []
+
+    def post(self, url, json, headers, timeout, stream):  # noqa: A002
+        self.calls.append({"url": url, "body": json})
+        method = json["method"]
+        q = self._queues.get(method)
+        if not q:
+            raise AssertionError(f"unexpected method: {method}")
+        return q.pop(0) if len(q) > 1 else q[0]
+
+
+def test_load_from_url_paginates_tools(monkeypatch):
+    # tools/list returns two pages; page 1 carries a nextCursor, page 2 does not.
+    page1 = _StubResponse(payload={"jsonrpc": "2.0", "id": 2, "result": {
+        "tools": [{"name": "tool_a", "description": "First."}],
+        "nextCursor": "CURSOR_PAGE_2",
+    }})
+    page2 = _StubResponse(payload={"jsonrpc": "2.0", "id": 2, "result": {
+        "tools": [{"name": "tool_b", "description": "Second."}],
+    }})
+    stub = _QueueStubRequests({
+        "initialize": [_StubResponse(payload={"jsonrpc": "2.0", "id": 1, "result": {}})],
+        "tools/list": [page1, page2],
+        "resources/list": [_StubResponse(payload={"jsonrpc": "2.0", "id": 3, "result": {"resources": []}})],
+        "prompts/list": [_StubResponse(payload={"jsonrpc": "2.0", "id": 3, "result": {"prompts": []}})],
+    })
+    _install_stub_requests(monkeypatch, stub)
+
+    out = _fetchers.load_from_url("https://x/mcp")
+    # Both pages are accumulated, in order.
+    assert [t["name"] for t in out["tools"]] == ["tool_a", "tool_b"]
+
+    # The first tools/list call sends no cursor; the second carries page 1's cursor.
+    tools_calls = [c for c in stub.calls if c["body"]["method"] == "tools/list"]
+    assert len(tools_calls) == 2
+    assert tools_calls[0]["body"]["params"] == {}
+    assert tools_calls[1]["body"]["params"] == {"cursor": "CURSOR_PAGE_2"}
+
+
+def test_load_from_url_pagination_safety_cap(monkeypatch):
+    # A server that returns a non-advancing cursor must not loop forever.
+    monkeypatch.setattr(_fetchers, "_MAX_LIST_PAGES", 5)
+    looping = _StubResponse(payload={"jsonrpc": "2.0", "id": 2, "result": {
+        "tools": [{"name": "t", "description": "x"}],
+        "nextCursor": "NEVER_ADVANCES",
+    }})
+    stub = _QueueStubRequests({
+        "initialize": [_StubResponse(payload={"jsonrpc": "2.0", "id": 1, "result": {}})],
+        "tools/list": [looping],
+    })
+    _install_stub_requests(monkeypatch, stub)
+
+    with pytest.raises(RuntimeError, match="more than 5 pages"):
+        _fetchers.load_from_url("https://x/mcp")

@@ -62,7 +62,7 @@ Dependencies are deliberately minimal: `tiktoken` (the default offline tokenizer
 
 The linter accepts the tool list from a live server, a file, or an inline JSON string. Pick exactly one.
 
-**1. Live MCP server URL** (Streamable HTTP transport; calls `tools/list`):
+**1. Live MCP server URL** (Streamable HTTP transport; calls `tools/list` and follows `nextCursor` pagination to fetch the whole catalog):
 
 ```bash
 python scripts/lint_mcp_schema.py \

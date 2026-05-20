@@ -48,8 +48,10 @@ def load_from_url(url: str, timeout: float = 30.0) -> dict[str, Any]:
 
     Performs a best-effort ``initialize`` handshake to capture ``serverInfo``,
     then ``tools/list``, then optional ``resources/list`` and ``prompts/list``
-    to populate the extras counters. Raises ``RuntimeError`` if the server
-    cannot be reached or the response is not parseable.
+    to populate the extras counters. All three list calls follow MCP cursor
+    pagination (``nextCursor``) to completion, so large catalogs are fetched
+    in full rather than truncated to the first page. Raises ``RuntimeError``
+    if the server cannot be reached or the response is not parseable.
     """
     return _load_via_jsonrpc(url, timeout)
 
@@ -212,24 +214,62 @@ def _load_via_jsonrpc(url: str, timeout: float) -> dict[str, Any]:
         # Some servers skip initialize for stateless clients. Continue.
         pass
 
-    tools_resp = _post_jsonrpc(requests, url, "tools/list", {}, timeout=timeout, request_id=2)
-    tools = tools_resp.get("result", {}).get("tools", [])
-    if not isinstance(tools, list):
-        raise RuntimeError(f"tools/list result is not a list: {tools_resp!r}")
+    tools = _list_all_pages(requests, url, "tools/list", "tools", timeout=timeout, request_id=2)
 
     resources: list[Any] = []
     prompts: list[Any] = []
     for method, key, sink in (("resources/list", "resources", resources), ("prompts/list", "prompts", prompts)):
         try:
-            r = _post_jsonrpc(requests, url, method, {}, timeout=timeout, request_id=3)
-            items = r.get("result", {}).get(key, [])
-            if isinstance(items, list):
-                sink.extend(items)
+            sink.extend(_list_all_pages(requests, url, method, key, timeout=timeout, request_id=3))
         except Exception:
-            # Optional capability; ignore failures.
+            # Optional capability; ignore failures (only feeds the count warning).
             pass
 
     return _build(server_info=server_info, tools=tools, resources=resources, prompts=prompts, source=url)
+
+
+# Safety cap so a server returning a non-advancing cursor cannot loop forever.
+_MAX_LIST_PAGES = 1000
+
+
+def _list_all_pages(
+    requests_mod: Any,
+    url: str,
+    method: str,
+    key: str,
+    *,
+    timeout: float,
+    request_id: int,
+) -> list[Any]:
+    """Call a paginated MCP list method, following ``nextCursor`` to the end.
+
+    MCP list methods (``tools/list``, ``resources/list``, ``prompts/list``)
+    return at most one page plus an optional ``nextCursor``. To get the full
+    set the client re-issues the call with ``params.cursor = nextCursor``
+    until the server stops returning a cursor. Without this loop a live
+    audit of a large catalog would silently score only the first page.
+
+    Raises ``RuntimeError`` if a page's result is not a list, or if the
+    server returns more than ``_MAX_LIST_PAGES`` pages (a non-advancing
+    cursor would otherwise spin forever).
+    """
+    items: list[Any] = []
+    cursor: Any = None
+    for _ in range(_MAX_LIST_PAGES):
+        params = {"cursor": cursor} if cursor else {}
+        resp = _post_jsonrpc(requests_mod, url, method, params, timeout=timeout, request_id=request_id)
+        result = resp.get("result", {}) if isinstance(resp, dict) else {}
+        page = result.get(key, [])
+        if not isinstance(page, list):
+            raise RuntimeError(f"{method} result is not a list: {resp!r}")
+        items.extend(page)
+        cursor = result.get("nextCursor")
+        if not cursor:
+            return items
+    raise RuntimeError(
+        f"{method} returned more than {_MAX_LIST_PAGES} pages; aborting to avoid an unbounded loop "
+        "(the server may be returning a non-advancing cursor)."
+    )
 
 
 _SSE_DATA_LINE = re.compile(r"^data:\s*(.*)$")
