@@ -54,3 +54,12 @@ application_default_credentials.json
 **/bigquery_table_report.json
 **/bigquery_table_report.md
 **/bigquery_table_report.html
+
+# Generated scorecards from running the metadata scorer / MCP schema linter
+# (narrow: committed example outputs, if any, would use different names)
+**/scorecard.json
+**/scorecard.md
+**/scorecard.html
+**/metadata_scorecard.json
+**/metadata_scorecard.md
+**/metadata_scorecard.html

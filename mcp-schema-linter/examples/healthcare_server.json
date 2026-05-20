@@ -1,0 +1,98 @@
+{
+  "server": {"name": "patient-data-gateway", "version": "1.4.2"},
+  "tools": [
+    {
+      "name": "search_patients",
+      "description": "This tool allows you to search the patient directory by name, date of birth, or record number and return matching patient summaries.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "date_of_birth": {"type": "string"},
+          "record_number": {"type": "string"}
+        }
+      },
+      "annotations": {"readOnlyHint": true}
+    },
+    {
+      "name": "get_patient_record",
+      "description": "Retrieve the full clinical record for one patient by record number, including problem list, allergies, and recent encounters. Use this once you have a record number from search_patients.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "record_number": {"type": "string"},
+          "include_historical_encounters": {"type": "boolean"}
+        },
+        "required": ["record_number"]
+      },
+      "annotations": {"readOnlyHint": true}
+    },
+    {
+      "name": "list_appointments",
+      "description": "Lists appointments for a patient or provider within a date range.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "record_number": {"type": "string"},
+          "provider_id": {"type": "string"},
+          "starts_after": {"type": "string"},
+          "status": {"type": "string", "enum": ["scheduled", "checked_in", "completed", "cancelled", "no_show"]}
+        }
+      },
+      "annotations": {"readOnlyHint": true}
+    },
+    {
+      "name": "schedule_appointment",
+      "description": "This tool allows you to schedule a new appointment for a patient with a provider at a given time. It creates an appointment record in the scheduling system.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "record_number": {"type": "string"},
+          "provider_id": {"type": "string"},
+          "starts_at": {"type": "string"},
+          "duration_minutes": {"type": "integer"}
+        },
+        "required": ["record_number", "provider_id", "starts_at"]
+      },
+      "annotations": {"destructiveHint": true, "idempotentHint": false}
+    },
+    {
+      "name": "cancel_appointment",
+      "description": "Cancels a scheduled appointment and frees the provider's time slot. The appointment record is retained with a cancelled status for reporting.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "appointment_id": {"type": "string"},
+          "reason": {"type": "string"}
+        },
+        "required": ["appointment_id"]
+      },
+      "annotations": {"destructiveHint": true}
+    },
+    {
+      "name": "get_lab_result",
+      "description": "Gets a lab result.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "result_id": {"type": "string"}
+        }
+      },
+      "annotations": {"readOnlyHint": true}
+    },
+    {
+      "name": "update_medication_list",
+      "description": "Updates the active medication list on a patient record by adding or removing entries. Records who made the change and when.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "record_number": {"type": "string"},
+          "add": {"type": "array"},
+          "remove": {"type": "array"}
+        },
+        "required": ["record_number"]
+      },
+      "annotations": {}
+    }
+  ]
+}

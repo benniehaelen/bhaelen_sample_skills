@@ -1,0 +1,133 @@
+{
+  "server": {"name": "legacy-platform", "version": "0.9.3"},
+  "tools": [
+    {
+      "name": "get_user",
+      "description": "This tool allows you to get a user. It returns the user object for the given input. The user object has many fields on it that you can read.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "include_deleted_records_in_the_response_payload": {"type": "boolean"},
+          "the_optional_secondary_lookup_fallback_field": {"type": "string"}
+        }
+      },
+      "annotations": {}
+    },
+    {
+      "name": "fetch_user_by_id",
+      "description": "This tool allows you to fetch a user by their id. It returns the user object for the given user id that you pass in to the function. The returned user has many fields.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "user_id": {"type": "string"},
+          "include_deleted_records_in_the_response_payload": {"type": "boolean"},
+          "the_optional_secondary_lookup_fallback_field": {"type": "string"}
+        }
+      },
+      "annotations": {}
+    },
+    {
+      "name": "data",
+      "description": "Gets data from the system.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "the_fully_qualified_resource_identifier_string": {"type": "string"},
+          "the_secondary_optional_filter_expression_to_apply": {"type": "string"},
+          "the_tertiary_sort_order_specification_field": {"type": "string"},
+          "the_quaternary_pagination_cursor_token_value": {"type": "string"},
+          "the_quinary_response_field_projection_mask": {"type": "string"},
+          "the_senary_cache_control_directive_override": {"type": "string"}
+        }
+      },
+      "annotations": {}
+    },
+    {
+      "name": "process",
+      "description": "The purpose of this tool is to process the records that are passed to it according to the configuration that has been set up in the system, and then to return the processed results back to the caller so that they can be used in whatever way is needed. Processing can involve a wide variety of different operations depending on the type of record that is being processed and the current configuration state, including but not limited to validation of the record fields, normalization of the values contained within those fields, enrichment of the record with additional data drawn from other sources within the platform, transformation of the record into a different shape or format, deduplication against records that already exist in the data store, and finally persistence of the processed record back into the appropriate storage location. Because this tool handles so many different cases, the behavior you observe will depend heavily on the inputs you provide and the configuration that is currently active, so you may need to experiment with different inputs to understand how it behaves in your particular situation. Note that processing very large batches can take a significant amount of time and may occasionally time out, in which case you should retry with a smaller batch size. The tool does not provide any guarantees about the ordering of the processed results relative to the order of the inputs that you originally provided, and it may reorder, drop, or duplicate records in ways that are difficult to predict ahead of time without careful testing.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "records": {"type": "array", "items": {"type": "object", "properties": {"record_identifier_value": {"type": "string"}, "record_payload_blob": {"type": "object"}, "record_metadata_envelope": {"type": "object"}}}},
+          "config": {"type": "object", "properties": {"validation_mode_setting": {"type": "string"}, "validation_severity_threshold": {"type": "string"}, "validation_rule_override_map": {"type": "object"}, "normalization_mode_setting": {"type": "string"}, "normalization_locale_preference": {"type": "string"}, "normalization_casing_strategy": {"type": "string"}, "enrichment_source_list": {"type": "array"}, "enrichment_timeout_per_source_ms": {"type": "integer"}, "enrichment_fallback_behavior": {"type": "string"}, "transformation_pipeline_definition": {"type": "array"}, "transformation_error_handling_mode": {"type": "string"}, "deduplication_strategy_selector": {"type": "string"}, "deduplication_match_field_list": {"type": "array"}, "deduplication_tie_breaker_rule": {"type": "string"}, "persistence_target_location": {"type": "string"}, "persistence_consistency_level": {"type": "string"}, "persistence_replication_factor": {"type": "integer"}, "batch_size_override_value": {"type": "integer"}, "timeout_milliseconds_override": {"type": "integer"}, "retry_policy_configuration_object": {"type": "object"}, "retry_maximum_attempt_count": {"type": "integer"}, "retry_backoff_multiplier_value": {"type": "number"}, "ordering_guarantee_preference": {"type": "string"}, "ordering_partition_key_selector": {"type": "string"}}},
+          "the_processing_mode_selector_enumeration_value": {"type": "string"},
+          "the_secondary_fallback_processing_mode_value": {"type": "string"},
+          "the_tertiary_emergency_processing_mode_value": {"type": "string"}
+        }
+      },
+      "annotations": {}
+    },
+    {
+      "name": "user_deletion",
+      "description": "This tool is used to delete a user from the system. For example, to delete user 42 you would pass id as 42. For example, to delete user 99 you would pass id as 99.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "default": "42"},
+          "the_cascade_deletion_behavior_configuration_flag": {"type": "boolean"},
+          "the_secondary_confirmation_acknowledgement_token": {"type": "string"}
+        }
+      },
+      "annotations": {}
+    },
+    {
+      "name": "searchEverythingInTheEntireDatabase",
+      "description": "This is a tool that searches everything in the entire database for you. The purpose of this tool is to give you a comprehensive way to look through all of the data that is stored anywhere in the system, including but not limited to user records, account information, transaction histories, billing details, subscription data, audit logs, configuration entries, feature flags, session records, and any other information that may happen to be relevant to whatever it is that you are currently searching for. For example, to find active users named smith you would pass the query active users named smith. When you use this tool you should provide a query string that describes in some way what you are looking for, and the tool will then go through every table and every index that exists in the database and return to you a list of all of the results that match your query in any way at all. Keep in mind that because this tool searches absolutely everything, it can be quite slow, especially if the database is large or if your query happens to be very broad, and it may return a very large number of results that you will then need to sift through manually in order to find the specific thing that you were actually looking for in the first place. For this reason it is generally recommended that you try to make your query as specific as you possibly can before you call it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "q": {"type": "string"},
+          "example": {"type": "string", "default": "active users named smith"},
+          "tables_to_include_in_the_full_scan": {"type": "array", "items": {"type": "string"}},
+          "tables_to_exclude_from_the_full_scan": {"type": "array", "items": {"type": "string"}},
+          "indexes_to_consult_during_the_search": {"type": "array", "items": {"type": "string"}},
+          "result_ranking_strategy_configuration": {"type": "object", "properties": {"primary_sort_key": {"type": "string"}, "secondary_sort_key": {"type": "string"}, "tie_breaker_field": {"type": "string"}, "boost_factors_by_table": {"type": "object"}, "decay_function_parameters": {"type": "object"}}},
+          "maximum_number_of_results_to_return": {"type": "integer"},
+          "the_pagination_cursor_continuation_token": {"type": "string"},
+          "whether_to_include_soft_deleted_rows": {"type": "boolean"}
+        }
+      },
+      "annotations": {}
+    },
+    {
+      "name": "update",
+      "description": "This function will update a thing in the system based on what you give it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "fields": {"type": "object"},
+          "the_partial_update_merge_strategy_selector": {"type": "string"},
+          "the_optimistic_concurrency_version_token": {"type": "string"}
+        }
+      },
+      "annotations": {}
+    },
+    {
+      "name": "ChargeCard",
+      "description": "This tool allows you to charge a credit card for a given amount of money. For example, to charge twenty dollars you would pass the amount as 2000. For example, to charge five dollars you would pass the amount as 500.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "amount": {"type": "integer"},
+          "card": {"type": "string"},
+          "currency": {"type": "string", "enum": ["usd", "eur", "gbp", "jpy", "cad", "aud"]}
+        }
+      },
+      "annotations": {}
+    },
+    {
+      "name": "list_all_the_items_and_records",
+      "description": "This endpoint lists all of the items and also all of the records that happen to exist anywhere in the system at all. It returns absolutely everything that it can possibly find in one single enormous flat list with no filtering, no sorting, no grouping, and no pagination controls that actually work, so you will receive every item and every record that the platform has ever stored regardless of whether it is relevant to you, which means the response can be extremely large and may include items and records of completely different types mixed together with no way to tell them apart other than by inspecting each one individually after the fact.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "page_number_to_return_from_the_paginated_result_set": {"type": "integer"},
+          "the_number_of_items_to_include_on_each_returned_page": {"type": "integer"}
+        }
+      },
+      "annotations": {}
+    }
+  ]
+}

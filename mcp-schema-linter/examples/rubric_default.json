@@ -1,0 +1,218 @@
+{
+  "name": "token-economy-default",
+  "version": "1.0",
+  "description": "Default rubric for the mcp-schema-linter skill. Reproduces the built-in scoring exactly. Override any subset of sections; omitted sections fall back to these defaults.",
+
+  "tokenizer": "cl100k_base",
+  "serialization": "raw",
+
+  "grade_cutoffs": {
+    "A": 90,
+    "B": 80,
+    "C": 70,
+    "D": 60
+  },
+
+  "thresholds": {
+    "description_tokens_min": 20,
+    "description_tokens_good_max": 150,
+    "description_tokens_bloated": 300,
+
+    "schema_tokens_good_max": 200,
+    "schema_tokens_bloated": 500,
+
+    "parameter_name_chars_max": 25,
+    "parameter_name_tokens_max": 6,
+
+    "routing_miss_cost_low": 300,
+    "routing_miss_cost_high": 800,
+
+    "overlap_cost_low": 500,
+    "overlap_cost_high": 1000,
+
+    "format_recovery_cost_low": 200,
+    "format_recovery_cost_high": 500,
+
+    "evidence_max_chars": 120
+  },
+
+  "tier_definitions": {
+    "1": {
+      "label": "Direct cost drivers",
+      "description": "Each failure has a directly measurable token cost paid on every turn. tokens_saved is measured, not estimated."
+    },
+    "2": {
+      "label": "Indirect cost drivers",
+      "description": "Each failure causes routing errors that burn whole turns. tokens_saved is estimated based on typical recovery patterns."
+    },
+    "3": {
+      "label": "Hygiene",
+      "description": "Small per-occurrence cost that accumulates across the catalog. tokens_saved is reported as 0; criterion contributes to overall tool quality score."
+    }
+  },
+
+  "criteria": {
+    "description_length_appropriate": {
+      "tier": 1,
+      "max_points": 2,
+      "description": "Description sits in the 20-150 token band. Under-description causes router failures; over-description bloats the catalog."
+    },
+    "no_boilerplate_opener": {
+      "tier": 1,
+      "max_points": 2,
+      "description": "Description does not open with a generic phrase that adds tokens without information."
+    },
+    "schema_compact": {
+      "tier": 1,
+      "max_points": 2,
+      "description": "Input schema is not bloated by deep nesting, redundant unions, or edge-case fields."
+    },
+    "no_redundant_examples": {
+      "tier": 1,
+      "max_points": 2,
+      "description": "Examples appear in exactly one place (description OR schema, not both)."
+    },
+    "concise_parameter_names": {
+      "tier": 1,
+      "max_points": 2,
+      "description": "Parameter names are short and meaningful, not over-descriptive."
+    },
+    "has_when_to_use": {
+      "tier": 2,
+      "max_points": 2,
+      "description": "Description includes positive guidance on when to pick this tool."
+    },
+    "has_when_not_to_use": {
+      "tier": 2,
+      "max_points": 2,
+      "description": "Description includes negative guidance when siblings exist. N/A if no siblings.",
+      "conditional": true
+    },
+    "no_overlap_with_siblings": {
+      "tier": 2,
+      "max_points": 2,
+      "description": "Overlapping sibling tools have explicit distinguishing language in each description."
+    },
+    "param_format_specified": {
+      "tier": 2,
+      "max_points": 2,
+      "description": "Date, timestamp, ID, and URL parameters state their format. N/A if no applicable parameters.",
+      "conditional": true
+    },
+    "destructive_action_annotated": {
+      "tier": 2,
+      "max_points": 2,
+      "description": "Mutating tools have both MCP annotations and description language calling out the mutation. N/A for read-only tools.",
+      "conditional": true,
+      "safety_critical": true
+    },
+    "name_is_verb_oriented": {
+      "tier": 3,
+      "max_points": 2,
+      "description": "Tool name uses an action verb."
+    },
+    "name_is_unique_in_catalog": {
+      "tier": 3,
+      "max_points": 2,
+      "description": "No near-synonymous tool names in the catalog."
+    },
+    "every_param_has_description": {
+      "tier": 3,
+      "max_points": 2,
+      "description": "No parameter is missing a description."
+    },
+    "enum_values_documented": {
+      "tier": 3,
+      "max_points": 2,
+      "description": "Enum parameters list valid values with semantic notes. N/A if no enum parameters.",
+      "conditional": true
+    },
+    "units_specified": {
+      "tier": 3,
+      "max_points": 2,
+      "description": "Numeric parameters with ambiguous units state them. N/A if no applicable parameters.",
+      "conditional": true
+    }
+  },
+
+  "boilerplate_openers": [
+    "this tool allows you to",
+    "this tool can be used to",
+    "this tool is used to",
+    "use this tool when you want to",
+    "use this tool to",
+    "the purpose of this tool is",
+    "this function will",
+    "this function is used to",
+    "this endpoint",
+    "this method",
+    "this api",
+    "this is a tool that",
+    "this is a function that",
+    "you can use this to",
+    "you can use this tool to",
+    "designed to"
+  ],
+
+  "soft_boilerplate_openers": [
+    "this retrieves",
+    "this returns",
+    "this fetches",
+    "this gets",
+    "this creates",
+    "this updates",
+    "this deletes",
+    "retrieves a",
+    "returns a",
+    "fetches a"
+  ],
+
+  "siblings_similarity_threshold": 0.7,
+
+  "destructive_verbs": [
+    "delete", "remove", "drop", "purge", "destroy", "wipe",
+    "send", "publish", "post", "broadcast", "notify",
+    "charge", "refund", "transfer", "withdraw", "deposit",
+    "create", "insert", "add",
+    "update", "modify", "patch", "edit", "change", "set",
+    "execute", "run", "trigger", "invoke",
+    "approve", "reject", "cancel", "submit", "complete",
+    "schedule", "book", "reserve", "assign", "register", "enroll",
+    "upload", "import", "enable", "disable", "activate", "deactivate",
+    "archive", "restore", "grant", "revoke", "start", "stop", "pause", "resume",
+    "sync", "merge", "clone", "move", "rename", "apply", "generate", "issue", "void"
+  ],
+
+  "read_only_verbs": [
+    "get", "fetch", "read", "list", "search", "find",
+    "query", "lookup", "describe", "show", "view",
+    "count", "check", "validate", "verify", "test",
+    "download", "export", "calculate", "compute", "analyze", "summarize",
+    "resolve", "preview", "inspect", "scan", "browse"
+  ],
+
+  "format_keywords": {
+    "date": ["date", "datetime", "timestamp", "_at", "_on", "_time", "since", "until", "before", "after"],
+    "id": ["_id", "_uuid", "_guid", "identifier"],
+    "url": ["url", "uri", "endpoint", "link", "href"],
+    "money": ["amount", "price", "cost", "fee", "total", "balance", "_usd", "_eur", "_gbp"],
+    "duration": ["duration", "timeout", "ttl", "_seconds", "_ms", "_minutes", "_hours", "_days"]
+  },
+
+  "near_synonym_pairs": [
+    ["get", "fetch", "retrieve", "read"],
+    ["search", "find", "query", "lookup"],
+    ["create", "add", "insert", "new"],
+    ["update", "modify", "edit", "patch", "change"],
+    ["delete", "remove", "drop"],
+    ["list", "enumerate", "all"]
+  ],
+
+  "weights": {
+    "tier_1": 1.0,
+    "tier_2": 0.8,
+    "tier_3": 0.5
+  },
+
+  "catalog_grade_weighting": "by_token_cost"
+}

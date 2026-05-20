@@ -1,0 +1,83 @@
+{
+  "server": {"name": "billing-api", "version": "2.1.0"},
+  "tools": [
+    {
+      "name": "search_invoices",
+      "description": "Search invoices by customer, status, or issue-date range and return a paginated list of matches. To fetch one invoice whose id you already know, use get_invoice instead, which is cheaper.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {"type": "string", "description": "Customer identifier, UUID v4 format."},
+          "status": {"type": "string", "enum": ["draft", "open", "paid", "void"]},
+          "issued_after": {"type": "string", "description": "Lower bound on issue date."},
+          "limit": {"type": "integer", "description": "Maximum results to return, 1 to 100."}
+        }
+      },
+      "annotations": {"readOnlyHint": true}
+    },
+    {
+      "name": "get_invoice",
+      "description": "Retrieve the full record for a single invoice by its id, including line items and payment history. Use this when you already hold an invoice id. To discover ids from filter criteria, search with search_invoices first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {"type": "string", "description": "Invoice identifier, UUID v4 format."}
+        },
+        "required": ["invoice_id"]
+      },
+      "annotations": {"readOnlyHint": true}
+    },
+    {
+      "name": "create_invoice",
+      "description": "Creates a new invoice for a customer and returns its id. Writes a billing record that will be visible to the customer once finalized. Use this to bill for a completed order. The invoice opens in draft state so you can review it before sending.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {"type": "string", "description": "Customer to bill, UUID v4 format."},
+          "amount_cents": {"type": "integer", "description": "Total to charge, in USD cents."},
+          "due_on": {"type": "string", "description": "Payment due date, ISO 8601 date (YYYY-MM-DD)."}
+        },
+        "required": ["customer_id", "amount_cents"]
+      },
+      "annotations": {"destructiveHint": true, "idempotentHint": false}
+    },
+    {
+      "name": "void_invoice",
+      "description": "Voids an existing invoice so it can no longer be paid, leaving an audit trail. Use this to cancel a charge that was issued in error. Unlike delete operations, voiding preserves the record for accounting. The invoice must be in draft or open state.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {"type": "string", "description": "Invoice to void, UUID v4 format."},
+          "reason": {"type": "string", "description": "Short human-readable reason recorded on the audit trail."}
+        },
+        "required": ["invoice_id"]
+      },
+      "annotations": {"destructiveHint": true, "idempotentHint": true}
+    },
+    {
+      "name": "list_customers",
+      "description": "List customers in the account, newest first, with optional name-prefix filtering.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name_prefix": {"type": "string", "description": "Case-insensitive prefix to match against the customer display name."},
+          "limit": {"type": "integer", "description": "Maximum results to return, 1 to 100."}
+        }
+      },
+      "annotations": {"readOnlyHint": true}
+    },
+    {
+      "name": "update_customer_email",
+      "description": "Updates the billing email address on a customer record and sends a confirmation message to the new address. The change takes effect immediately for future invoices.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "customer_id": {"type": "string", "description": "Customer to modify, UUID v4 format."},
+          "email": {"type": "string", "description": "New billing email address, RFC 5322 format."}
+        },
+        "required": ["customer_id", "email"]
+      },
+      "annotations": {"destructiveHint": true, "idempotentHint": true}
+    }
+  ]
+}
