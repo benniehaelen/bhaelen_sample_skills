@@ -17,6 +17,8 @@ build/
 dist/
 *.egg-info/
 *.egg
+# Packaged skill archives (e.g. for Claude.ai upload)
+*.zip
 
 # Coverage / test artifacts
 .coverage
