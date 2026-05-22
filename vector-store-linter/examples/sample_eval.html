@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vector Store Scorecard</title><style>:root {
+  --bg: #ffffff; --fg: #1a1a1a; --muted: #6b7280; --border: #e5e7eb; --card: #f9fafb;
+  --accent: #2563eb;
+  --grade-a-bg: #ecfdf5; --grade-a-fg: #065f46;
+  --grade-b-bg: #ecfeff; --grade-b-fg: #155e75;
+  --grade-c-bg: #fffbeb; --grade-c-fg: #92400e;
+  --grade-d-bg: #ffedd5; --grade-d-fg: #9a3412;
+  --grade-f-bg: #fef2f2; --grade-f-fg: #991b1b;
+  --pass-bg: #ecfdf5; --pass-fg: #065f46; --pass-dot: #16a34a;
+  --warn-bg: #fffbeb; --warn-fg: #92400e; --warn-dot: #d97706;
+  --fail-bg: #fef2f2; --fail-fg: #991b1b; --fail-dot: #dc2626;
+  --critical-bg: #fee2e2; --critical-fg: #7f1d1d; --critical-dot: #b91c1c;
+  --info-bg: #f3f4f6; --info-fg: #4b5563; --info-dot: #9ca3af;
+  --bar-track: #e5e7eb; --bar-fill: #2563eb;
+  --callout-bg: #fffbeb; --callout-border: #fde68a;
+}
+@media (prefers-color-scheme: dark) {
+:root {
+  --bg: #0f172a; --fg: #e2e8f0; --muted: #94a3b8; --border: #334155; --card: #1e293b;
+  --accent: #60a5fa;
+  --grade-a-bg: #064e3b; --grade-a-fg: #a7f3d0;
+  --grade-b-bg: #0e3a4a; --grade-b-fg: #a5f3fc;
+  --grade-c-bg: #422006; --grade-c-fg: #fde68a;
+  --grade-d-bg: #431407; --grade-d-fg: #fed7aa;
+  --grade-f-bg: #7f1d1d; --grade-f-fg: #fecaca;
+  --pass-bg: #064e3b; --pass-fg: #a7f3d0; --pass-dot: #34d399;
+  --warn-bg: #422006; --warn-fg: #fde68a; --warn-dot: #fbbf24;
+  --fail-bg: #7f1d1d; --fail-fg: #fecaca; --fail-dot: #f87171;
+  --critical-bg: #7f1d1d; --critical-fg: #fecaca; --critical-dot: #ef4444;
+  --info-bg: #1e293b; --info-fg: #cbd5e1; --info-dot: #64748b;
+  --bar-track: #334155; --bar-fill: #60a5fa;
+  --callout-bg: #422006; --callout-border: #92400e;
+}
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 32px 16px; background: var(--bg); color: var(--fg);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.wrap { max-width: 1000px; margin: 0 auto; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+.subtitle { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 18px 20px; margin-bottom: 16px; }
+.card h2 { font-size: 13px; margin: 0 0 12px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.05em; }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.score-num { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.score-num .of { color: var(--muted); font-size: 15px; font-weight: 500; }
+.grade-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 40px;
+  height: 40px; padding: 0 14px; border-radius: 8px; font-weight: 700; font-size: 18px; }
+.grade-A { background: var(--grade-a-bg); color: var(--grade-a-fg); }
+.grade-B { background: var(--grade-b-bg); color: var(--grade-b-fg); }
+.grade-C { background: var(--grade-c-bg); color: var(--grade-c-fg); }
+.grade-D { background: var(--grade-d-bg); color: var(--grade-d-fg); }
+.grade-F { background: var(--grade-f-bg); color: var(--grade-f-fg); }
+.tier-row { display: grid; grid-template-columns: 200px 1fr 56px; align-items: center; gap: 12px;
+  padding: 6px 0; }
+.bar { height: 8px; background: var(--bar-track); border-radius: 4px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--bar-fill); }
+.tier-score { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+tr:last-child td { border-bottom: none; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; white-space: nowrap; }
+.pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+.pill.pass { background: var(--pass-bg); color: var(--pass-fg); } .pill.pass .dot { background: var(--pass-dot); }
+.pill.warn { background: var(--warn-bg); color: var(--warn-fg); } .pill.warn .dot { background: var(--warn-dot); }
+.pill.fail { background: var(--fail-bg); color: var(--fail-fg); } .pill.fail .dot { background: var(--fail-dot); }
+.pill.critical { background: var(--critical-bg); color: var(--critical-fg); } .pill.critical .dot { background: var(--critical-dot); }
+.pill.info { background: var(--info-bg); color: var(--info-fg); } .pill.info .dot { background: var(--info-dot); }
+.callout { background: var(--callout-bg); border: 1px solid var(--callout-border); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 16px; }
+.callout ul { margin: 0; padding-left: 18px; }
+.evidence { color: var(--muted); }
+details.fq { background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 0 14px; margin: 8px 0; }
+details.fq > summary { padding: 10px 0; cursor: pointer; display: flex; gap: 10px; align-items: center;
+  flex-wrap: wrap; }
+details.fq[open] > summary { border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.fq-query { font-weight: 600; }
+.fq-body { padding: 4px 0 12px; font-size: 13px; }
+.fq-row { margin: 6px 0; }
+.footnote { font-size: 11px; color: var(--muted); margin-top: 20px; padding-top: 12px;
+  border-top: 1px dashed var(--border); }</style></head><body><div class="wrap"><div class="head"><div><h1>Vector Store Scorecard</h1><p class="subtitle">store pinecone (knowledge-base) · modes: evaluate · rubric: builtin · 2026-05-20T12:00:00+00:00</p></div><div style="display:flex;align-items:center;gap:14px"><div class="score-num">73<span class="of"> / 100</span></div><span class="grade-pill grade-C">C</span></div></div><div class="card"><h2>Per-tier scores</h2><div class="tier-row"><span>Tier 1: configuration</span><span class="bar"><span style="width:90%"></span></span><span class="tier-score">90</span></div><div class="tier-row"><span>Tier 2: content</span><span class="bar"><span style="width:80%"></span></span><span class="tier-score">80</span></div><div class="tier-row"><span>Tier 3: retrieval</span><span class="bar"><span style="width:59%"></span></span><span class="tier-score">59</span></div></div><div class="card"><h2>Top fixes</h2><table><thead><tr><th>Criterion</th><th>Severity</th><th>Score</th><th>Finding</th></tr></thead><tbody><tr><td><code>c_recall_at_10</code></td><td><span class="pill fail"><span class="dot"></span>fail</span></td><td class="num">0.73</td><td class="evidence">Recall@10 is 0.733 (minimum 0.8).</td></tr><tr><td><code>c_hit_rate_at_10</code></td><td><span class="pill fail"><span class="dot"></span>fail</span></td><td class="num">0.73</td><td class="evidence">Hit rate@10 is 0.733 (minimum 0.9).</td></tr><tr><td><code>c_no_empty_content</code></td><td><span class="pill fail"><span class="dot"></span>fail</span></td><td class="num">0.98</td><td class="evidence">3 chunk(s) under 100 non-whitespace characters (2.0%).</td></tr><tr><td><code>c_no_exact_duplicates</code></td><td><span class="pill warn"><span class="dot"></span>warn</span></td><td class="num">0.00</td><td class="evidence">Exact-duplicate rate 3.4% exceeds the 1% limit.</td></tr><tr><td><code>c_precision_at_5</code></td><td><span class="pill warn"><span class="dot"></span>warn</span></td><td class="num">0.15</td><td class="evidence">Precision@5 is 0.147 (minimum 0.5).</td></tr></tbody></table></div><div class="card"><h2>Tier 1: configuration</h2><table><thead><tr><th>Criterion</th><th>Status</th><th>Score</th><th>Finding</th></tr></thead><tbody><tr><td><code>c_dimension_consistency</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">1.00</td><td class="evidence">Store declares a single dimension of 64.</td></tr><tr><td><code>c_distance_metric_appropriate</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">1.00</td><td class="evidence">Cosine metric is appropriate for these embeddings.</td></tr><tr><td><code>c_index_type_for_scale</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">1.00</td><td class="evidence">Index type hnsw suits 12000 vectors.</td></tr><tr><td><code>c_hnsw_parameters_tuned</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">1.00</td><td class="evidence">HNSW parameters clear the recommended minimums.</td></tr><tr><td><code>c_freshness_configured</code></td><td><span class="pill info"><span class="dot"></span>info</span></td><td class="num">0.50</td><td class="evidence">No refresh cadence recorded. Document the refresh interval and freshness expectation.</td></tr><tr><td><code>c_replication_for_scale</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">1.00</td><td class="evidence">Replication and sharding are adequate for the reported scale.</td></tr><tr><td><code>c_metadata_schema_declared</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">1.00</td><td class="evidence">Metadata schema declares 3 field(s).</td></tr><tr><td><code>c_embedding_model_recorded</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">1.00</td><td class="evidence">Metadata schema declares an embedding-model field (model).</td></tr><tr><td><code>c_namespace_or_tenant_isolation</code></td><td><span class="pill info"><span class="dot"></span>info</span></td><td class="num">0.50</td><td class="evidence">Namespace configuration not reported; cannot assess tenant isolation.</td></tr></tbody></table></div><div class="card"><h2>Tier 2: content</h2><table><thead><tr><th>Criterion</th><th>Status</th><th>Score</th><th>Finding</th></tr></thead><tbody><tr><td><code>c_no_exact_duplicates</code></td><td><span class="pill warn"><span class="dot"></span>warn</span></td><td class="num">0.00</td><td class="evidence">Exact-duplicate rate 3.4% exceeds the 1% limit.</td></tr><tr><td><code>c_no_near_duplicates</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">1.00</td><td class="evidence">Near-duplicate rate 4.1% within the 5% limit.</td></tr><tr><td><code>c_chunk_size_distribution</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">1.00</td><td class="evidence">Chunk-size outliers 0.0% within the 10% limit.</td></tr><tr><td><code>c_no_empty_content</code></td><td><span class="pill fail"><span class="dot"></span>fail</span></td><td class="num">0.98</td><td class="evidence">3 chunk(s) under 100 non-whitespace characters (2.0%).</td></tr><tr><td><code>c_metadata_completeness</code></td><td><span class="pill warn"><span class="dot"></span>warn</span></td><td class="num">0.67</td><td class="evidence">1 metadata field(s) below 90% coverage: section.</td></tr><tr><td><code>c_embedding_distribution</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">1.00</td><td class="evidence">Largest cluster holds 14%, within the 30% limit.</td></tr><tr><td><code>c_no_orphan_references</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">1.00</td><td class="evidence">All sampled vectors carry a source reference in &#x27;source&#x27;.</td></tr><tr><td><code>c_embedding_model_homogeneous</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">1.00</td><td class="evidence">All sampled vectors share one embedding model (text-embedding-3-small).</td></tr></tbody></table></div><div class="card"><h2>Tier 3: retrieval</h2><table><thead><tr><th>Criterion</th><th>Status</th><th>Score</th><th>Finding</th></tr></thead><tbody><tr><td><code>c_recall_at_5</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">0.73</td><td class="evidence">Recall@5 is 0.733 (minimum 0.7).</td></tr><tr><td><code>c_recall_at_10</code></td><td><span class="pill fail"><span class="dot"></span>fail</span></td><td class="num">0.73</td><td class="evidence">Recall@10 is 0.733 (minimum 0.8).</td></tr><tr><td><code>c_precision_at_5</code></td><td><span class="pill warn"><span class="dot"></span>warn</span></td><td class="num">0.15</td><td class="evidence">Precision@5 is 0.147 (minimum 0.5).</td></tr><tr><td><code>c_ndcg_at_10</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">0.73</td><td class="evidence">NDCG@10 is 0.733 (minimum 0.7).</td></tr><tr><td><code>c_mrr</code></td><td><span class="pill pass"><span class="dot"></span>pass</span></td><td class="num">0.73</td><td class="evidence">Mean reciprocal rank is 0.733 (minimum 0.6).</td></tr><tr><td><code>c_hit_rate_at_10</code></td><td><span class="pill fail"><span class="dot"></span>fail</span></td><td class="num">0.73</td><td class="evidence">Hit rate@10 is 0.733 (minimum 0.9).</td></tr><tr><td><code>c_query_failure_concentration</code></td><td><span class="pill warn"><span class="dot"></span>warn</span></td><td class="num">0.00</td><td class="evidence">Largest share of failures in one type is 100% (limit 40%).</td></tr><tr><td><code>c_no_universal_results</code></td><td><span class="pill warn"><span class="dot"></span>warn</span></td><td class="num">0.73</td><td class="evidence">Most-repeated document appears in 27% of query results (limit 15%).</td></tr></tbody></table></div><div class="card"><h2>Failing queries</h2><details class="fq"><summary><span class="fq-query">What is the rule for edge case 0?</span><span class="pill fail"><span class="dot"></span>vocabulary_mismatch 0.78</span></summary><div class="fq-body"><div class="fq-row"><strong>Expected:</strong> missing_0</div><div class="fq-row"><strong>Retrieved:</strong></div><table><thead><tr><th>Document</th><th>Score</th></tr></thead><tbody><tr><td><code>chunk_0</code></td><td class="num">0.4100</td></tr><tr><td><code>chunk_1</code></td><td class="num">0.3900</td></tr></tbody></table><div class="fq-row"><strong>Likely failure modes:</strong></div><ul><li><strong>vocabulary_mismatch</strong> (0.78): The query shares few terms with the relevant document, a vocabulary gap.</li></ul></div></details><details class="fq"><summary><span class="fq-query">What is the rule for edge case 1?</span><span class="pill fail"><span class="dot"></span>missing_metadata_filter 0.62</span></summary><div class="fq-body"><div class="fq-row"><strong>Expected:</strong> missing_1</div><div class="fq-row"><strong>Retrieved:</strong></div><table><thead><tr><th>Document</th><th>Score</th></tr></thead><tbody><tr><td><code>chunk_1</code></td><td class="num">0.5500</td></tr><tr><td><code>chunk_2</code></td><td class="num">0.5200</td></tr></tbody></table><div class="fq-row"><strong>Likely failure modes:</strong></div><ul><li><strong>missing_metadata_filter</strong> (0.62): Lexically similar documents rank while the relevant one is absent; a filter may be missing.</li></ul></div></details></div><div class="footnote">Tier scores are quality measures: for retrieval, the score is the metric value itself (recall, precision, NDCG, MRR, hit rate). The overall score weights the tiers by the rubric, rebalancing to Tier 1 and Tier 2 when no ground truth is supplied.</div></div></body></html>

@@ -1,0 +1,12 @@
+# Core dependencies (always required)
+numpy>=1.24
+pandas>=2.0
+pyyaml>=6.0
+
+# Adapter-specific (install what you use)
+# pinecone-client>=3.0
+# google-cloud-bigquery>=3.0
+# psycopg2-binary>=2.9
+
+# Optional, for --llm-assist and generate-ground-truth
+# anthropic>=0.30

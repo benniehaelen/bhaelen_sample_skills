@@ -1,0 +1,331 @@
+{
+  "schema_version": "1.0",
+  "scored_at": "2026-05-20T12:00:00+00:00",
+  "overall_score": 84,
+  "grade": "B",
+  "tier_scores": {
+    "tier_1_config": 90,
+    "tier_2_content": 80
+  },
+  "summary": {
+    "criteria_evaluated": 17,
+    "passed": 12,
+    "failing_by_severity": {
+      "info": 2,
+      "warn": 2,
+      "fail": 1
+    }
+  },
+  "critical_findings": [],
+  "top_fixes": [
+    {
+      "criterion_id": "c_no_empty_content",
+      "severity": "fail",
+      "score": 0.9797,
+      "weight": 10,
+      "message": "3 chunk(s) under 100 non-whitespace characters (2.0%)."
+    },
+    {
+      "criterion_id": "c_no_exact_duplicates",
+      "severity": "warn",
+      "score": 0.0,
+      "weight": 15,
+      "message": "Exact-duplicate rate 3.4% exceeds the 1% limit."
+    },
+    {
+      "criterion_id": "c_metadata_completeness",
+      "severity": "warn",
+      "score": 0.6667,
+      "weight": 13,
+      "message": "1 metadata field(s) below 90% coverage: section."
+    },
+    {
+      "criterion_id": "c_freshness_configured",
+      "severity": "info",
+      "score": 0.5,
+      "weight": 10,
+      "message": "No refresh cadence recorded. Document the refresh interval and freshness expectation."
+    },
+    {
+      "criterion_id": "c_namespace_or_tenant_isolation",
+      "severity": "info",
+      "score": 0.5,
+      "weight": 10,
+      "message": "Namespace configuration not reported; cannot assess tenant isolation."
+    }
+  ],
+  "results": [
+    {
+      "criterion_id": "c_dimension_consistency",
+      "name": "Dimension consistency",
+      "tier": "tier_1_config",
+      "weight": 15,
+      "passed": true,
+      "score": 1.0,
+      "severity": "critical",
+      "message": "Store declares a single dimension of 64.",
+      "evidence": {
+        "dimension": 64
+      }
+    },
+    {
+      "criterion_id": "c_distance_metric_appropriate",
+      "name": "Distance metric appropriate for embeddings",
+      "tier": "tier_1_config",
+      "weight": 12,
+      "passed": true,
+      "score": 1.0,
+      "severity": "warn",
+      "message": "Cosine metric is appropriate for these embeddings.",
+      "evidence": {
+        "distance_metric": "cosine",
+        "normalized_fraction": 0.0
+      }
+    },
+    {
+      "criterion_id": "c_index_type_for_scale",
+      "name": "Index type matches scale",
+      "tier": "tier_1_config",
+      "weight": 10,
+      "passed": true,
+      "score": 1.0,
+      "severity": "warn",
+      "message": "Index type hnsw suits 12000 vectors.",
+      "evidence": {
+        "index_type": "hnsw",
+        "vector_count": 12000
+      }
+    },
+    {
+      "criterion_id": "c_hnsw_parameters_tuned",
+      "name": "HNSW parameters in sensible range",
+      "tier": "tier_1_config",
+      "weight": 10,
+      "passed": true,
+      "score": 1.0,
+      "severity": "warn",
+      "message": "HNSW parameters clear the recommended minimums.",
+      "evidence": {
+        "ef": 64,
+        "m": 16,
+        "ef_min": 50,
+        "m_min": 16
+      }
+    },
+    {
+      "criterion_id": "c_freshness_configured",
+      "name": "Freshness and refresh configured",
+      "tier": "tier_1_config",
+      "weight": 10,
+      "passed": false,
+      "score": 0.5,
+      "severity": "info",
+      "message": "No refresh cadence recorded. Document the refresh interval and freshness expectation.",
+      "evidence": {
+        "refresh_cadence": null
+      }
+    },
+    {
+      "criterion_id": "c_replication_for_scale",
+      "name": "Replication and sharding appropriate",
+      "tier": "tier_1_config",
+      "weight": 8,
+      "passed": true,
+      "score": 1.0,
+      "severity": "info",
+      "message": "Replication and sharding are adequate for the reported scale.",
+      "evidence": {
+        "vector_count": 12000,
+        "replica_count": 1,
+        "shard_count": 1
+      }
+    },
+    {
+      "criterion_id": "c_metadata_schema_declared",
+      "name": "Metadata schema declared",
+      "tier": "tier_1_config",
+      "weight": 15,
+      "passed": true,
+      "score": 1.0,
+      "severity": "warn",
+      "message": "Metadata schema declares 3 field(s).",
+      "evidence": {
+        "field_count": 3
+      }
+    },
+    {
+      "criterion_id": "c_embedding_model_recorded",
+      "name": "Embedding model recorded in metadata",
+      "tier": "tier_1_config",
+      "weight": 10,
+      "passed": true,
+      "score": 1.0,
+      "severity": "warn",
+      "message": "Metadata schema declares an embedding-model field (model).",
+      "evidence": {
+        "model_fields": [
+          "model"
+        ]
+      }
+    },
+    {
+      "criterion_id": "c_namespace_or_tenant_isolation",
+      "name": "Namespace or tenant isolation",
+      "tier": "tier_1_config",
+      "weight": 10,
+      "passed": false,
+      "score": 0.5,
+      "severity": "info",
+      "message": "Namespace configuration not reported; cannot assess tenant isolation.",
+      "evidence": {
+        "namespaces": null
+      }
+    },
+    {
+      "criterion_id": "c_no_exact_duplicates",
+      "name": "No exact duplicate vectors",
+      "tier": "tier_2_content",
+      "weight": 15,
+      "passed": false,
+      "score": 0.0,
+      "severity": "warn",
+      "message": "Exact-duplicate rate 3.4% exceeds the 1% limit.",
+      "evidence": {
+        "duplicate_count": 5,
+        "duplicate_rate": 0.0338,
+        "sample_size": 148
+      }
+    },
+    {
+      "criterion_id": "c_no_near_duplicates",
+      "name": "Low near-duplicate rate",
+      "tier": "tier_2_content",
+      "weight": 15,
+      "passed": true,
+      "score": 1.0,
+      "severity": "warn",
+      "message": "Near-duplicate rate 4.1% within the 5% limit.",
+      "evidence": {
+        "near_duplicate_rate": 0.0405,
+        "similarity_threshold": 0.98,
+        "sample_size": 148,
+        "subsampled": false
+      }
+    },
+    {
+      "criterion_id": "c_chunk_size_distribution",
+      "name": "Chunk size distribution reasonable",
+      "tier": "tier_2_content",
+      "weight": 12,
+      "passed": true,
+      "score": 1.0,
+      "severity": "warn",
+      "message": "Chunk-size outliers 0.0% within the 10% limit.",
+      "evidence": {
+        "outlier_rate": 0.0,
+        "median_estimated_tokens": 60,
+        "min_acceptable_tokens": 50,
+        "max_acceptable_tokens": 2000,
+        "sample_with_content": 145,
+        "note": "token counts estimated from character length"
+      }
+    },
+    {
+      "criterion_id": "c_no_empty_content",
+      "name": "No empty or near-empty content",
+      "tier": "tier_2_content",
+      "weight": 10,
+      "passed": false,
+      "score": 0.9797,
+      "severity": "fail",
+      "message": "3 chunk(s) under 100 non-whitespace characters (2.0%).",
+      "evidence": {
+        "empty_count": 3,
+        "empty_rate": 0.0203,
+        "min_non_whitespace_chars": 100,
+        "sample_with_content": 148
+      }
+    },
+    {
+      "criterion_id": "c_metadata_completeness",
+      "name": "Metadata completeness",
+      "tier": "tier_2_content",
+      "weight": 13,
+      "passed": false,
+      "score": 0.6667,
+      "severity": "warn",
+      "message": "1 metadata field(s) below 90% coverage: section.",
+      "evidence": {
+        "coverage": {
+          "source": 1.0,
+          "model": 1.0,
+          "section": 0.8649
+        },
+        "min_field_coverage": 0.9
+      }
+    },
+    {
+      "criterion_id": "c_embedding_distribution",
+      "name": "Embeddings well-distributed in space",
+      "tier": "tier_2_content",
+      "weight": 10,
+      "passed": true,
+      "score": 1.0,
+      "severity": "info",
+      "message": "Largest cluster holds 14%, within the 30% limit.",
+      "evidence": {
+        "max_cluster_concentration": 0.1419,
+        "k": 10,
+        "sample_size": 148
+      }
+    },
+    {
+      "criterion_id": "c_no_orphan_references",
+      "name": "No orphan source-document references",
+      "tier": "tier_2_content",
+      "weight": 10,
+      "passed": true,
+      "score": 1.0,
+      "severity": "fail",
+      "message": "All sampled vectors carry a source reference in 'source'.",
+      "evidence": {
+        "source_field": "source",
+        "missing_source_count": 0,
+        "missing_rate": 0.0,
+        "note": "presence checked; referenced source existence is not verified"
+      }
+    },
+    {
+      "criterion_id": "c_embedding_model_homogeneous",
+      "name": "All embeddings from same model",
+      "tier": "tier_2_content",
+      "weight": 15,
+      "passed": true,
+      "score": 1.0,
+      "severity": "critical",
+      "message": "All sampled vectors share one embedding model (text-embedding-3-small).",
+      "evidence": {
+        "distinct_models": [
+          "text-embedding-3-small"
+        ],
+        "model_count": 1
+      }
+    }
+  ],
+  "metadata": {
+    "scored_at": "2026-05-20T12:00:00+00:00",
+    "store": {
+      "store_type": "pinecone",
+      "index": "knowledge-base"
+    },
+    "modes": [
+      "audit-content"
+    ],
+    "rubric": {
+      "source": "builtin"
+    },
+    "sample_size": 10000,
+    "sampled_count": 148,
+    "full_read": false
+  }
+}
