@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest>=7.0
+# cost_aware / usage_log modes also need google-cloud-bigquery at runtime; it is
+# not a test dependency because tests stub the client and inject metadata directly.

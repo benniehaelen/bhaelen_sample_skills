@@ -1,0 +1,89 @@
+{
+  "name": "nl2sql-guardrail-default",
+  "version": "1.0",
+  "description": "Default rubric for the sql-guardrail-linter skill. Reproduces the built-in scoring exactly. Override any subset of sections; omitted sections fall back to these defaults.",
+
+  "dialect": "bigquery",
+
+  "severity_weights": {
+    "critical": 5,
+    "high": 3,
+    "medium": 2,
+    "low": 1
+  },
+
+  "grade_cutoffs": {
+    "A": 90,
+    "B": 80,
+    "C": 70,
+    "D": 60
+  },
+
+  "max_bytes_ceiling": 53687091200,
+
+  "tier_definitions": {
+    "1": {
+      "label": "Statement safety",
+      "description": "Controls that block unconditionally. A failure here means the statement is not a safe read-only single statement."
+    },
+    "2": {
+      "label": "Cost and scan control",
+      "description": "Controls that bound how much the statement scans and returns."
+    },
+    "3": {
+      "label": "Governance and hygiene",
+      "description": "Tenant scoping, PII access, and naming hygiene that keep the statement inside the control plane."
+    }
+  },
+
+  "controls": {
+    "SQ-001": {"name": "read_only_select", "tier": 1, "severity": "critical"},
+    "SQ-002": {"name": "single_statement", "tier": 1, "severity": "critical"},
+    "SQ-003": {"name": "no_comment_injection", "tier": 1, "severity": "high"},
+    "SQ-004": {"name": "partition_filter_present", "tier": 2, "severity": "high", "conditional": true},
+    "SQ-005": {"name": "no_select_star", "tier": 2, "severity": "medium"},
+    "SQ-006": {"name": "bounded_result", "tier": 2, "severity": "medium"},
+    "SQ-007": {"name": "no_cartesian_join", "tier": 2, "severity": "high"},
+    "SQ-008": {"name": "scan_within_ceiling", "tier": 2, "severity": "high", "conditional": true},
+    "SQ-009": {"name": "tenant_predicate_present", "tier": 3, "severity": "critical", "conditional": true},
+    "SQ-010": {"name": "pii_access_justified", "tier": 3, "severity": "critical", "conditional": true},
+    "SQ-011": {"name": "fully_qualified_tables", "tier": 3, "severity": "low"},
+    "SQ-012": {"name": "order_by_bounded", "tier": 3, "severity": "low"}
+  },
+
+  "comment_injection_patterns": [
+    "ignore\\s+(all\\s+)?(previous|prior|above)\\s+(instructions|controls|rules)",
+    "disable\\s+(the\\s+)?(guardrail|control|check|policy|lint)",
+    "bypass\\s+(the\\s+)?(guardrail|control|check|policy|filter)",
+    "skip\\s+(the\\s+)?(guardrail|control|check|policy|partition\\s+filter)",
+    "no[_\\s-]?guardrail",
+    "system\\s*:",
+    "assistant\\s*:",
+    "\\bdrop\\s+table\\b",
+    "\\bdelete\\s+from\\b",
+    "\\bgrant\\b",
+    "--\\s*noqa",
+    "/\\*\\+",
+    "set\\s+@@"
+  ],
+
+  "pii_column_patterns": [
+    "(^|_)ssn(_|$)",
+    "social_security",
+    "(^|_)dob(_|$)",
+    "date_of_birth",
+    "(^|_)mrn(_|$)",
+    "medical_record",
+    "(^|_)email(_|$)",
+    "(^|_)phone(_|$)",
+    "(^|_)address(_|$)",
+    "(^|_)passport(_|$)",
+    "(^|_)national_id(_|$)",
+    "(^|_)tax_id(_|$)",
+    "(^|_)credit_card(_|$)",
+    "(^|_)card_number(_|$)",
+    "(^|_)patient_name(_|$)",
+    "(^|_)diagnosis(_|$)",
+    "(^|_)icd(_|$)"
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "acme-prod.clinical.encounter": "coid",
+  "acme-prod.clinical.observation": "coid",
+  "acme-prod.billing.claim": "tenant_id"
+}

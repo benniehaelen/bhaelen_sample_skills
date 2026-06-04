@@ -65,3 +65,9 @@ application_default_credentials.json
 **/metadata_scorecard.json
 **/metadata_scorecard.md
 **/metadata_scorecard.html
+
+# Generated reports from running the SQL guardrail linter
+# (narrow: committed example outputs use the sample_report.* prefix and stay tracked)
+**/report.json
+**/report.md
+**/report.html

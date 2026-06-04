@@ -1,0 +1,595 @@
+{
+  "rubric_version": "1.0",
+  "rubric_config": {
+    "source": "builtin",
+    "name": "nl2sql-guardrail-default",
+    "version": "1.0",
+    "sha256": ""
+  },
+  "linted_at": "2026-06-03T16:20:00+00:00",
+  "mode": "cost_aware",
+  "scope": {
+    "source": "sql_file",
+    "table": "candidate_queries.sql",
+    "statement_count": 4
+  },
+  "summary": {
+    "statement_count": 4,
+    "gate_severity": "high",
+    "statements_with_violations": 3,
+    "worst_score": 53,
+    "total_estimated_bytes": 59055800320,
+    "total_estimated_bytes_human": "55.00 GiB"
+  },
+  "statements": [
+    {
+      "statement_id": "stmt_0003",
+      "source": "candidate_queries.sql #3",
+      "sql_preview": "SELECT a.encounter_id, b.facility_name FROM acme-prod.clinical.encounter a CROSS JOIN acme-prod.reference.facility b",
+      "score": 53,
+      "grade": "F",
+      "statement_type": "SELECT",
+      "estimated_bytes": 12884901888,
+      "estimated_bytes_human": "12.00 GiB",
+      "referenced_tables": [
+        "acme-prod.clinical.encounter",
+        "acme-prod.reference.facility"
+      ],
+      "controls": [
+        {
+          "id": "SQ-001",
+          "name": "read_only_select",
+          "tier": 1,
+          "severity": "critical",
+          "status": "pass",
+          "evidence": "single read-only SELECT"
+        },
+        {
+          "id": "SQ-002",
+          "name": "single_statement",
+          "tier": 1,
+          "severity": "critical",
+          "status": "pass",
+          "evidence": "exactly one statement"
+        },
+        {
+          "id": "SQ-003",
+          "name": "no_comment_injection",
+          "tier": 1,
+          "severity": "high",
+          "status": "pass",
+          "evidence": "no comments or hints"
+        },
+        {
+          "id": "SQ-004",
+          "name": "partition_filter_present",
+          "tier": 2,
+          "severity": "high",
+          "status": "fail",
+          "evidence": "no WHERE predicate on partition column (admit_date)",
+          "suggestion": "Add a partition filter on admit_date (for example `WHERE admit_date >= @from_date`) to prune the scan.",
+          "estimated_bytes_saved": 12884901888
+        },
+        {
+          "id": "SQ-005",
+          "name": "no_select_star",
+          "tier": 2,
+          "severity": "medium",
+          "status": "pass",
+          "evidence": "columns are enumerated"
+        },
+        {
+          "id": "SQ-006",
+          "name": "bounded_result",
+          "tier": 2,
+          "severity": "medium",
+          "status": "warn",
+          "evidence": "non-aggregating query has no LIMIT",
+          "suggestion": "Add a LIMIT to bound the row stream, or aggregate. An unbounded scan returns the whole table."
+        },
+        {
+          "id": "SQ-007",
+          "name": "no_cartesian_join",
+          "tier": 2,
+          "severity": "high",
+          "status": "fail",
+          "evidence": "CROSS JOIN",
+          "suggestion": "Give every join an explicit ON/USING predicate. Replace CROSS JOIN or comma joins with an equality on the join keys."
+        },
+        {
+          "id": "SQ-008",
+          "name": "scan_within_ceiling",
+          "tier": 2,
+          "severity": "high",
+          "status": "fail",
+          "evidence": "12.00 GiB exceeds ceiling 10.00 GiB",
+          "suggestion": "Prune the scan: add a partition filter, select fewer columns, or narrow the date range so the dry-run estimate drops below the ceiling.",
+          "estimated_bytes_saved": 2147483648
+        },
+        {
+          "id": "SQ-009",
+          "name": "tenant_predicate_present",
+          "tier": 3,
+          "severity": "critical",
+          "status": "fail",
+          "evidence": "no predicate on tenant column (coid)",
+          "suggestion": "Add a zone filter on the tenant column, for example `AND coid = @caller_coid`."
+        },
+        {
+          "id": "SQ-010",
+          "name": "pii_access_justified",
+          "tier": 3,
+          "severity": "critical",
+          "status": "na",
+          "evidence": "projection touches no restricted column"
+        },
+        {
+          "id": "SQ-011",
+          "name": "fully_qualified_tables",
+          "tier": 3,
+          "severity": "low",
+          "status": "pass",
+          "evidence": "all base tables fully qualified"
+        },
+        {
+          "id": "SQ-012",
+          "name": "order_by_bounded",
+          "tier": 3,
+          "severity": "low",
+          "status": "na",
+          "evidence": "no ORDER BY"
+        }
+      ],
+      "violations": {
+        "critical": 1,
+        "high": 3,
+        "medium": 0,
+        "low": 0
+      }
+    },
+    {
+      "statement_id": "stmt_0002",
+      "source": "candidate_queries.sql #2",
+      "sql_preview": "SELECT ssn, patient_name, admit_date FROM acme-prod.clinical.encounter WHERE admit_date >= '2026-05-01' ORDER BY admit_date",
+      "score": 61,
+      "grade": "D",
+      "statement_type": "SELECT",
+      "estimated_bytes": 44023414784,
+      "estimated_bytes_human": "41.00 GiB",
+      "referenced_tables": [
+        "acme-prod.clinical.encounter"
+      ],
+      "controls": [
+        {
+          "id": "SQ-001",
+          "name": "read_only_select",
+          "tier": 1,
+          "severity": "critical",
+          "status": "pass",
+          "evidence": "single read-only SELECT"
+        },
+        {
+          "id": "SQ-002",
+          "name": "single_statement",
+          "tier": 1,
+          "severity": "critical",
+          "status": "pass",
+          "evidence": "exactly one statement"
+        },
+        {
+          "id": "SQ-003",
+          "name": "no_comment_injection",
+          "tier": 1,
+          "severity": "high",
+          "status": "pass",
+          "evidence": "no comments or hints"
+        },
+        {
+          "id": "SQ-004",
+          "name": "partition_filter_present",
+          "tier": 2,
+          "severity": "high",
+          "status": "pass",
+          "evidence": "partition column constrained (admit_date)"
+        },
+        {
+          "id": "SQ-005",
+          "name": "no_select_star",
+          "tier": 2,
+          "severity": "medium",
+          "status": "pass",
+          "evidence": "columns are enumerated"
+        },
+        {
+          "id": "SQ-006",
+          "name": "bounded_result",
+          "tier": 2,
+          "severity": "medium",
+          "status": "warn",
+          "evidence": "non-aggregating query has no LIMIT",
+          "suggestion": "Add a LIMIT to bound the row stream, or aggregate. An unbounded scan returns the whole table."
+        },
+        {
+          "id": "SQ-007",
+          "name": "no_cartesian_join",
+          "tier": 2,
+          "severity": "high",
+          "status": "pass",
+          "evidence": "no joins"
+        },
+        {
+          "id": "SQ-008",
+          "name": "scan_within_ceiling",
+          "tier": 2,
+          "severity": "high",
+          "status": "fail",
+          "evidence": "41.00 GiB exceeds ceiling 10.00 GiB",
+          "suggestion": "Prune the scan: add a partition filter, select fewer columns, or narrow the date range so the dry-run estimate drops below the ceiling.",
+          "estimated_bytes_saved": 33285996544
+        },
+        {
+          "id": "SQ-009",
+          "name": "tenant_predicate_present",
+          "tier": 3,
+          "severity": "critical",
+          "status": "fail",
+          "evidence": "no predicate on tenant column (coid)",
+          "suggestion": "Add a zone filter on the tenant column, for example `AND coid = @caller_coid`."
+        },
+        {
+          "id": "SQ-010",
+          "name": "pii_access_justified",
+          "tier": 3,
+          "severity": "critical",
+          "status": "fail",
+          "evidence": "restricted column projected: patient_name, ssn",
+          "suggestion": "Drop the restricted column(s) patient_name, ssn, or add the caller/column to pii_allowlist if the access is justified."
+        },
+        {
+          "id": "SQ-011",
+          "name": "fully_qualified_tables",
+          "tier": 3,
+          "severity": "low",
+          "status": "pass",
+          "evidence": "all base tables fully qualified"
+        },
+        {
+          "id": "SQ-012",
+          "name": "order_by_bounded",
+          "tier": 3,
+          "severity": "low",
+          "status": "fail",
+          "evidence": "ORDER BY without LIMIT",
+          "suggestion": "Pair the ORDER BY with a LIMIT, or drop the ORDER BY if the caller does not need a sorted top-N."
+        }
+      ],
+      "violations": {
+        "critical": 2,
+        "high": 1,
+        "medium": 0,
+        "low": 1
+      }
+    },
+    {
+      "statement_id": "stmt_0004",
+      "source": "candidate_queries.sql #4",
+      "sql_preview": "DELETE FROM acme-prod.clinical.encounter WHERE admit_date < '2020-01-01'",
+      "score": 62,
+      "grade": "D",
+      "statement_type": "DELETE",
+      "estimated_bytes": null,
+      "estimated_bytes_human": null,
+      "referenced_tables": [
+        "acme-prod.clinical.encounter"
+      ],
+      "controls": [
+        {
+          "id": "SQ-001",
+          "name": "read_only_select",
+          "tier": 1,
+          "severity": "critical",
+          "status": "fail",
+          "evidence": "DELETE statement is not read-only",
+          "suggestion": "Rewrite as a read-only SELECT. Writes and DDL must go through a separate, reviewed path, not the NL2SQL plane."
+        },
+        {
+          "id": "SQ-002",
+          "name": "single_statement",
+          "tier": 1,
+          "severity": "critical",
+          "status": "pass",
+          "evidence": "exactly one statement"
+        },
+        {
+          "id": "SQ-003",
+          "name": "no_comment_injection",
+          "tier": 1,
+          "severity": "high",
+          "status": "pass",
+          "evidence": "no comments or hints"
+        },
+        {
+          "id": "SQ-004",
+          "name": "partition_filter_present",
+          "tier": 2,
+          "severity": "high",
+          "status": "pass",
+          "evidence": "partition column constrained (admit_date)"
+        },
+        {
+          "id": "SQ-005",
+          "name": "no_select_star",
+          "tier": 2,
+          "severity": "medium",
+          "status": "pass",
+          "evidence": "columns are enumerated"
+        },
+        {
+          "id": "SQ-006",
+          "name": "bounded_result",
+          "tier": 2,
+          "severity": "medium",
+          "status": "warn",
+          "evidence": "non-aggregating query has no LIMIT",
+          "suggestion": "Add a LIMIT to bound the row stream, or aggregate. An unbounded scan returns the whole table."
+        },
+        {
+          "id": "SQ-007",
+          "name": "no_cartesian_join",
+          "tier": 2,
+          "severity": "high",
+          "status": "pass",
+          "evidence": "no joins"
+        },
+        {
+          "id": "SQ-008",
+          "name": "scan_within_ceiling",
+          "tier": 2,
+          "severity": "high",
+          "status": "na",
+          "evidence": "no dry-run estimate (static mode)"
+        },
+        {
+          "id": "SQ-009",
+          "name": "tenant_predicate_present",
+          "tier": 3,
+          "severity": "critical",
+          "status": "fail",
+          "evidence": "no predicate on tenant column (coid)",
+          "suggestion": "Add a zone filter on the tenant column, for example `AND coid = @caller_coid`."
+        },
+        {
+          "id": "SQ-010",
+          "name": "pii_access_justified",
+          "tier": 3,
+          "severity": "critical",
+          "status": "na",
+          "evidence": "projection touches no restricted column"
+        },
+        {
+          "id": "SQ-011",
+          "name": "fully_qualified_tables",
+          "tier": 3,
+          "severity": "low",
+          "status": "pass",
+          "evidence": "all base tables fully qualified"
+        },
+        {
+          "id": "SQ-012",
+          "name": "order_by_bounded",
+          "tier": 3,
+          "severity": "low",
+          "status": "na",
+          "evidence": "no ORDER BY"
+        }
+      ],
+      "violations": {
+        "critical": 2,
+        "high": 0,
+        "medium": 0,
+        "low": 0
+      }
+    },
+    {
+      "statement_id": "stmt_0001",
+      "source": "candidate_queries.sql #1",
+      "sql_preview": "SELECT coid, COUNT(*) AS encounters FROM acme-prod.clinical.encounter WHERE admit_date >= '2026-01-01' AND coid = @caller_coid GROUP BY coid",
+      "score": 100,
+      "grade": "A",
+      "statement_type": "SELECT",
+      "estimated_bytes": 2147483648,
+      "estimated_bytes_human": "2.00 GiB",
+      "referenced_tables": [
+        "acme-prod.clinical.encounter"
+      ],
+      "controls": [
+        {
+          "id": "SQ-001",
+          "name": "read_only_select",
+          "tier": 1,
+          "severity": "critical",
+          "status": "pass",
+          "evidence": "single read-only SELECT"
+        },
+        {
+          "id": "SQ-002",
+          "name": "single_statement",
+          "tier": 1,
+          "severity": "critical",
+          "status": "pass",
+          "evidence": "exactly one statement"
+        },
+        {
+          "id": "SQ-003",
+          "name": "no_comment_injection",
+          "tier": 1,
+          "severity": "high",
+          "status": "pass",
+          "evidence": "no comments or hints"
+        },
+        {
+          "id": "SQ-004",
+          "name": "partition_filter_present",
+          "tier": 2,
+          "severity": "high",
+          "status": "pass",
+          "evidence": "partition column constrained (admit_date)"
+        },
+        {
+          "id": "SQ-005",
+          "name": "no_select_star",
+          "tier": 2,
+          "severity": "medium",
+          "status": "pass",
+          "evidence": "columns are enumerated"
+        },
+        {
+          "id": "SQ-006",
+          "name": "bounded_result",
+          "tier": 2,
+          "severity": "medium",
+          "status": "pass",
+          "evidence": "aggregating query (bounded result shape)"
+        },
+        {
+          "id": "SQ-007",
+          "name": "no_cartesian_join",
+          "tier": 2,
+          "severity": "high",
+          "status": "pass",
+          "evidence": "no joins"
+        },
+        {
+          "id": "SQ-008",
+          "name": "scan_within_ceiling",
+          "tier": 2,
+          "severity": "high",
+          "status": "pass",
+          "evidence": "2.00 GiB within ceiling 10.00 GiB"
+        },
+        {
+          "id": "SQ-009",
+          "name": "tenant_predicate_present",
+          "tier": 3,
+          "severity": "critical",
+          "status": "pass",
+          "evidence": "tenant predicate present (coid)"
+        },
+        {
+          "id": "SQ-010",
+          "name": "pii_access_justified",
+          "tier": 3,
+          "severity": "critical",
+          "status": "na",
+          "evidence": "projection touches no restricted column"
+        },
+        {
+          "id": "SQ-011",
+          "name": "fully_qualified_tables",
+          "tier": 3,
+          "severity": "low",
+          "status": "pass",
+          "evidence": "all base tables fully qualified"
+        },
+        {
+          "id": "SQ-012",
+          "name": "order_by_bounded",
+          "tier": 3,
+          "severity": "low",
+          "status": "na",
+          "evidence": "no ORDER BY"
+        }
+      ],
+      "violations": {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0
+      }
+    }
+  ],
+  "top_fixes": [
+    {
+      "statement_id": "stmt_0003",
+      "control": "SQ-009",
+      "severity": "critical",
+      "fix": "Add a zone filter on the tenant column, for example `AND coid = @caller_coid`.",
+      "impact": "blocks the statement"
+    },
+    {
+      "statement_id": "stmt_0002",
+      "control": "SQ-009",
+      "severity": "critical",
+      "fix": "Add a zone filter on the tenant column, for example `AND coid = @caller_coid`.",
+      "impact": "blocks the statement"
+    },
+    {
+      "statement_id": "stmt_0002",
+      "control": "SQ-010",
+      "severity": "critical",
+      "fix": "Drop the restricted column(s) patient_name, ssn, or add the caller/column to pii_allowlist if the access is justified.",
+      "impact": "blocks the statement"
+    },
+    {
+      "statement_id": "stmt_0004",
+      "control": "SQ-001",
+      "severity": "critical",
+      "fix": "Rewrite as a read-only SELECT. Writes and DDL must go through a separate, reviewed path, not the NL2SQL plane.",
+      "impact": "blocks the statement"
+    },
+    {
+      "statement_id": "stmt_0004",
+      "control": "SQ-009",
+      "severity": "critical",
+      "fix": "Add a zone filter on the tenant column, for example `AND coid = @caller_coid`.",
+      "impact": "blocks the statement"
+    },
+    {
+      "statement_id": "stmt_0002",
+      "control": "SQ-008",
+      "severity": "high",
+      "fix": "Prune the scan: add a partition filter, select fewer columns, or narrow the date range so the dry-run estimate drops below the ceiling.",
+      "estimated_bytes_saved": 33285996544
+    },
+    {
+      "statement_id": "stmt_0003",
+      "control": "SQ-004",
+      "severity": "high",
+      "fix": "Add a partition filter on admit_date (for example `WHERE admit_date >= @from_date`) to prune the scan.",
+      "estimated_bytes_saved": 12884901888
+    },
+    {
+      "statement_id": "stmt_0003",
+      "control": "SQ-008",
+      "severity": "high",
+      "fix": "Prune the scan: add a partition filter, select fewer columns, or narrow the date range so the dry-run estimate drops below the ceiling.",
+      "estimated_bytes_saved": 2147483648
+    },
+    {
+      "statement_id": "stmt_0003",
+      "control": "SQ-007",
+      "severity": "high",
+      "fix": "Give every join an explicit ON/USING predicate. Replace CROSS JOIN or comma joins with an equality on the join keys.",
+      "impact": "high-severity violation"
+    },
+    {
+      "statement_id": "stmt_0002",
+      "control": "SQ-012",
+      "severity": "low",
+      "fix": "Pair the ORDER BY with a LIMIT, or drop the ORDER BY if the caller does not need a sorted top-N.",
+      "impact": "hygiene issue"
+    }
+  ],
+  "expectations": [
+    {
+      "name": "expect_no_violations_at",
+      "limit": "high",
+      "actual": 3,
+      "passed": false,
+      "message": "3 statement(s) violate at or above high."
+    }
+  ],
+  "warnings": [
+    "Example report: byte estimates are illustrative, not from a live dry-run."
+  ]
+}
